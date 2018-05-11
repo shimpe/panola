@@ -79,10 +79,12 @@ Panola {
 			var lag = cLAG_DEFAULT;
 			var fullnote = "";
 			var letter = note[0];
+			var num_of_dots = 0;
 			var afterletter = note.copyRange(1, note.size-1);
 			var modifierregexp = "(#|x|--|-)";
 			var octaveregexp = "(\\d+)";
 			var durationregexp = "(\\d+)";
+			var durationextensionregexp = "(\\.)+";
 			var multiplierregexp = "(\\d+)";
 			var dividerregexp = "(\\d+)";
 			var propertyregex = "(vol|pdur|lag|tempo)";
@@ -91,6 +93,7 @@ Panola {
 			var aftermodifier = "";
 			var afteroctave = "";
 			var afterduration = "";
+			var afterdurationextension = "";
 			var aftermultiplier = "";
 			var afterdivider = "";
 			var afterproperty = "";
@@ -117,23 +120,29 @@ Panola {
 			afterduration = afteroctave;
 			if (afteroctave.findRegexpAt(durationregexp, 0).notNil) {
 				duration = afteroctave.findRegexpAt(durationregexp,0)[0];
-				cDURATION_DEFAULT = duration; // update duration default, reset multiplier, divider
+				cDURATION_DEFAULT = duration; // update duration default, reset multiplier, divider, num_of_dots
 				cMULTIPLIER_DEFAULT = "1";
 				divider = "1";
 				cDIVIDER_DEFAULT = "1";
 				multiplier = "1";
+				num_of_dots = 0;
 				afterduration = afteroctave.copyRange(afteroctave.findRegexpAt(durationregexp,0)[1], afteroctave.size-1);
 			};
-			if (afterduration[0].notNil && afterduration[0] == $*) {
-				afterduration = afterduration.copyRange(1, afterduration.size-1);
-				aftermultiplier = afterduration;
-				if (afterduration.findRegexpAt(multiplierregexp, 0).notNil) {
-					multiplier = afterduration.findRegexpAt(multiplierregexp, 0)[0];
+			afterdurationextension = afterduration;
+			if (afterduration.findRegexpAt(durationextensionregexp, 0).notNil) {
+				num_of_dots = afterduration.findRegexpAt(durationextensionregexp,0)[1];
+				afterdurationextension = afterduration.copyRange(afterduration.findRegexpAt(durationextensionregexp,0)[1], afterduration.size-1);
+			};
+			if (afterdurationextension[0].notNil && afterdurationextension[0] == $*) {
+				afterdurationextension = afterdurationextension.copyRange(1, afterdurationextension.size-1);
+				aftermultiplier = afterdurationextension;
+				if (afterdurationextension.findRegexpAt(multiplierregexp, 0).notNil) {
+					multiplier = afterdurationextension.findRegexpAt(multiplierregexp, 0)[0];
 					cMULTIPLIER_DEFAULT = multiplier; // update multiplier default
-					aftermultiplier = afterduration.copyRange(afterduration.findRegexpAt(multiplierregexp, 0)[1], afterduration.size-1);
+					aftermultiplier = afterdurationextension.copyRange(afterduration.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
 				};
 			} {
-				aftermultiplier = afterduration;
+				aftermultiplier = afterdurationextension;
 			};
 			if (aftermultiplier[0].notNil && aftermultiplier[0] == $/) {
 				aftermultiplier = aftermultiplier.copyRange(1, aftermultiplier.size-1);
@@ -178,7 +187,7 @@ Panola {
 			// ("props: "++props).postln;
 			// ("").postln;
 
-			parsed_notation = parsed_notation.add([fullnote, duration, multiplier, divider, props]);
+			parsed_notation = parsed_notation.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
 		});
 	}
 
@@ -246,9 +255,15 @@ Panola {
 		var durlist = parsed_notation.collect({
 			| el |
 			var duration = el[1];
-			var multiplier = el[2];
-			var divider = el[3];
-			"(1/"++duration++")*("++multiplier++"/"++divider++")";
+			var num_of_dots = el[2];
+			var multiplier = el[3];
+			var divider = el[4];
+			var dots = "";
+			var str = "";
+			num_of_dots.asInteger.do({
+				dots = dots + ".";
+			});
+			str = "(1/"++duration++dots++")*("++multiplier++"/"++divider++")";
 		});
 		^Pseq(durlist, 1);
 	}
@@ -257,9 +272,10 @@ Panola {
 		var durlist = parsed_notation.collect({
 			| el |
 			var duration = el[1];
-			var multiplier = el[2];
-			var divider = el[3];
-			(1/duration.asFloat)*(multiplier.asFloat/divider.asFloat);
+			var num_of_dots = el[2];
+			var multiplier = el[3];
+			var divider = el[4];
+			(1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
 		});
 		^Pseq(durlist, 1);
 	}
@@ -271,7 +287,7 @@ Panola {
 		// extract only properties
 		var proplist = parsed_notation.collect({
 			| el |
-			el[4];
+			el[5];
 		});
 		// keep only volume properties + add distance between current and previous volume property spec
 		var volprops = [];
