@@ -10,6 +10,7 @@ Panola {
 	var <gVOLUME_DEFAULT;
 	var <gPLAYDUR_DEFAULT;
 	var <gLAG_DEFAULT;
+	var <gDOTS_DEFAULT;
 	var <gTEMPO_DEFAULT;
 
 	*new {
@@ -44,6 +45,7 @@ Panola {
 		var cPLAYDUR_DEFAULT = playdur_default;
 		var cLAG_DEFAULT = lag_default;
 		var cTEMPO_DEFAULT = tempo_default;
+		var cDOTS_DEFAULT = 0;
 		var noteletters;
 
 		gOCTAVE_DEFAULT = cOCTAVE_DEFAULT;
@@ -55,6 +57,7 @@ Panola {
 		gPLAYDUR_DEFAULT = cPLAYDUR_DEFAULT;
 		gLAG_DEFAULT = cLAG_DEFAULT;
 		gTEMPO_DEFAULT = cTEMPO_DEFAULT;
+		gDOTS_DEFAULT = cDOTS_DEFAULT;
 
 		if (notation[notation.size-1] != $ ) {
 			notation = notation++" ";
@@ -79,7 +82,7 @@ Panola {
 			var lag = cLAG_DEFAULT;
 			var fullnote = "";
 			var letter = note[0];
-			var num_of_dots = 0;
+			var num_of_dots = cDOTS_DEFAULT;
 			var afterletter = note.copyRange(1, note.size-1);
 			var modifierregexp = "(#|x|--|-)";
 			var octaveregexp = "(\\d+)";
@@ -125,12 +128,14 @@ Panola {
 				divider = "1";
 				cDIVIDER_DEFAULT = "1";
 				multiplier = "1";
+				cDOTS_DEFAULT = 0;
 				num_of_dots = 0;
 				afterduration = afteroctave.copyRange(afteroctave.findRegexpAt(durationregexp,0)[1], afteroctave.size-1);
 			};
 			afterdurationextension = afterduration;
 			if (afterduration.findRegexpAt(durationextensionregexp, 0).notNil) {
 				num_of_dots = afterduration.findRegexpAt(durationextensionregexp,0)[1];
+				cDOTS_DEFAULT = num_of_dots; // update dots default
 				afterdurationextension = afterduration.copyRange(afterduration.findRegexpAt(durationextensionregexp,0)[1], afterduration.size-1);
 			};
 			if (afterdurationextension[0].notNil && afterdurationextension[0] == $*) {
@@ -139,7 +144,7 @@ Panola {
 				if (afterdurationextension.findRegexpAt(multiplierregexp, 0).notNil) {
 					multiplier = afterdurationextension.findRegexpAt(multiplierregexp, 0)[0];
 					cMULTIPLIER_DEFAULT = multiplier; // update multiplier default
-					aftermultiplier = afterdurationextension.copyRange(afterduration.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
+					aftermultiplier = afterdurationextension.copyRange(afterdurationextension.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
 				};
 			} {
 				aftermultiplier = afterdurationextension;
@@ -155,7 +160,6 @@ Panola {
 			} {
 				afterdivider = aftermultiplier;
 			};
-
 			afterproperty = afterdivider;
 			while({afterproperty[0] == $\\}, {
 				var type = "fixed";
@@ -254,7 +258,7 @@ Panola {
 	notationdurationPattern {
 		var durlist = parsed_notation.collect({
 			| el |
-			var duration = el[1];
+			var duration = el[1].stripWhiteSpace;
 			var num_of_dots = el[2];
 			var multiplier = el[3];
 			var divider = el[4];
