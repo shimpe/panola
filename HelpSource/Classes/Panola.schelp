@@ -1,0 +1,262 @@
+TITLE:: Panola
+summary:: PAttern NOtation LAnguage
+categories:: Utils
+related:: Pbind
+
+DESCRIPTION::
+Panola implements a subset of the midi specification language mispel in supercollider.
+
+
+CLASSMETHODS::
+
+METHOD:: new
+creates a new Panola instance
+
+ARGUMENT:: notation
+a string containing a valid panola notation string
+
+ARGUMENT:: octave_default
+which octave to use if not explicitly specified (default=4)
+
+ARGUMENT:: dur_default
+which duration to use if not explicitly specified (default=quarter note)
+
+ARGUMENT:: modifier_default
+which note modifier to use if not explicitly specified (default=none)
+
+ARGUMENT:: mult_default
+extra multiplier used to specify tuplets (default=1)
+
+ARGUMENT:: div_default
+extra divider used to specify tuplets (default=1)
+
+ARGUMENT:: vol_default
+volume value to use if not explicitly specified (default=0.5)
+
+ARGUMENT:: playdur_default
+legato value to use if not explicitly specified (default=0.9)
+
+ARGUMENT:: lag_default
+lag value to use if not explicitly specified(default=0)
+
+returns:: an object from which several patterns can be asked
+
+
+INSTANCEMETHODS::
+
+METHOD:: gMODIFIER_DEFAULT
+default note modifier
+
+returns:: returns default note modifier in use
+
+METHOD:: volumePattern
+volumePattern
+
+returns:: returns a pattern generating the required volume entries
+
+METHOD:: gPLAYDUR_DEFAULT
+default legato value
+
+returns:: returns default legato value in use
+
+METHOD:: parsed_notation
+internal data structure containing parse tree of the panola notation string
+
+returns:: internal data structure containing parse tree of the panola notation string
+
+METHOD:: init_notation
+internal helper method to parse the panola notation
+
+ARGUMENT:: notation
+string containing valid panola notation
+
+ARGUMENT:: octave_default
+wich octave to use by default
+
+ARGUMENT:: dur_default
+which duration to use by default
+
+ARGUMENT:: modifier_default
+which note modifier to use by default
+
+ARGUMENT:: mult_default
+which duration multiplier to use by default
+
+ARGUMENT:: div_default
+which duration divider to use by default
+
+ARGUMENT:: vol_default
+which volume to use by default
+
+ARGUMENT:: playdur_default
+which legato value to use by default
+
+ARGUMENT:: lag_default
+which lag to use by default
+
+returns:: nothing
+
+METHOD:: init_midilookup
+internal helper method to create notename to midi number lookup table
+
+returns:: nothing
+
+METHOD:: gDIVIDER_DEFAULT
+default duration divider
+
+returns:: default duration divider
+
+METHOD:: gOCTAVE_DEFAULT
+default octave
+
+returns:: default octave
+
+METHOD:: gLAG_DEFAULT
+default lag
+
+returns:: default lag
+
+METHOD:: durationPattern
+pattern generating the successive durations to realize the notation
+
+returns:: pattern generating the successive durations to realize the notation
+
+METHOD:: pr_animatedPattern
+internal helper method for turning animated properties into pattern
+
+ARGUMENT:: prop_name
+string describing name of property in panola notation
+
+ARGUMENT:: default_type
+type to use if no type specified
+
+ARGUMENT:: default_propval
+value to use if no property value specified
+
+returns:: pattern generating the property values needed to realize the notation string
+
+METHOD:: pdurPattern
+pattern generating the successive legato values to realize the notation
+
+returns:: pattern generating the successive legato values to realize the notation
+
+METHOD:: gMULTIPLIER_DEFAULT
+default duration multiplier value
+
+returns:: default duration multiplier value
+
+METHOD:: gDURATION_DEFAULT
+default duration
+
+returns:: default duration
+
+METHOD:: lagPattern
+pattern generating the successive lag values to realize the pattern
+
+returns:: pattern generating the successive lag values to realize the pattern
+
+METHOD:: gVOLUME_DEFAULT
+default volume
+
+returns:: default volume
+
+METHOD:: midinotePattern
+pattern generating the successsive midi notes to realize the pattern
+
+returns:: pattern generating the successsive midi notes to realize the pattern
+
+METHOD:: notationnotePattern
+pattern generating the successive notated notes to realize the pattern (mostly useful for display purposes)
+
+returns:: pattern generating the successive notated notes to realize the pattern
+
+METHOD:: notationdurationPattern
+pattern generating the successive notated durations to realize the pattern (mostly useful for display purposes)
+
+returns:: pattern generating the successive notated durations to realize the pattern
+
+METHOD:: note_to_midi
+internal lookup table
+
+returns:: lookup table to transform note names into midinotes
+
+METHOD:: init
+initialization of internal data structures + parsing of notation string
+
+ARGUMENT:: notation
+panola string with notation
+
+ARGUMENT:: octave_default
+default octave
+
+ARGUMENT:: dur_default
+default duration
+
+ARGUMENT:: modifier_default
+default modifier
+
+ARGUMENT:: mult_default
+default multiplier
+
+ARGUMENT:: div_default
+default divider
+
+ARGUMENT:: vol_default
+default volume
+
+ARGUMENT:: playdur_default
+default legato
+
+ARGUMENT:: lag_default
+default lag
+
+returns:: internally initialized Panola instance
+
+
+EXAMPLES::
+
+Using Panola without pattern:
+
+code::
+(
+p = Panola.new("c4 g4 c4 c4_16\\vol{0.6} e  g\\lag{0} c#5 bx4_8*2/3 g- f5\\lag[2]\\vol{0.1} d--_4 c_4 r\\vol{0.9}");
+u = p.notationnotePattern.asStream;
+w = p.midinotePattern.asStream;
+v = p.durationPattern.asStream;
+x = p.notationdurationPattern.asStream;
+q = p.volumePattern.asStream;
+r = p.lagPattern.asStream;
+t = p.pdurPattern.asStream;
+14.do({
+	("Note: "++u.next++" (midinote "++w.next++")").postln;
+	("Duration: "++v.next++" (i.e."++x.next++")").postln;
+	("Volume: "++q.next).postln;
+	("Lag: "++r.next).postln;
+	("Legato: "++t.next).postln;
+	"".postln;
+});
+)
+::
+
+Using Panola in a pattern
+
+code::
+(
+s.waitForBoot({
+	p = Panola.new("c4\\vol{0.4}\\pdur[0.9] d e c c d e c "
+		"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
+		"g_8\\pdur[0.01] a g f e_4\\pdur[0.9] c g_8\\pdur[0.01] a g f e_4\\pdur[0.9] c_4 "
+		"c g3 c4_2 c_4 g3 c4_2\\vol{0.2}");
+
+	q = Pbind(
+		\instrument, \default,
+		\midinote, p.midinotePattern,
+		\dur, p.durationPattern,
+		\amp, p.volumePattern,
+		\legato, p.pdurPattern,
+		\lag, p.lagPattern,
+	);
+	~player = q.play;
+});
+)
+::
