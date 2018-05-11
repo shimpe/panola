@@ -364,6 +364,6 @@ Panola {
 	}
 
 	tempoPattern {
-		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/60.0);
+		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(4*60.0));
 	}
 }
