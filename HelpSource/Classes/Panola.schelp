@@ -5,6 +5,57 @@ related:: Pbind
 
 DESCRIPTION::
 Panola implements a subset of the midi specification language mispel in supercollider.
+Mispel is a domain specific language implemented in python 3 for expressive midi generation
+See https://github.com/shimpe/expremigen
+
+Mispel elements that are not supported in this supercollider version include:
+    - passing animation options (tweening) for the animated properties
+    - chords
+    - specifying multiple tracks in one string
+
+A Panola notation string specifies a phrase of notes.
+Notenames can be a, b, c, d, e, f, g. Optional note modifiers can be
+# for a sharp, x for a double sharp, - for a moll and -- for a double moll.
+Notenames also include an optional octave number. The following are all examples of valid notes:
+
+a4, b-3, d, gx2, f#1, d--1
+
+If you do not specify an octave number, the last specified one is reused.
+
+Optionally one can append an underscore with an (inverse) duration value to a note, e.g.
+a_4 is a quarter note, whereas a_8 is an eighth note. These are not to be confused with a4 and a8
+which are a-notes in the fourth and eighth octave respectively.
+
+If you do not specify a duration value, the last specified one is reused.
+
+The duration value can optionally be extended with dots. Each dot adds half the duration to the specified duration.
+E.g. a_4 lasts for 1 quarter note (=2 eighth notes), whereas a_4. lasts for 1.5 quarter notes (3 eighth notes).
+Number of dots is remembered until a new duration is specified.
+
+After the dots one can optionally specify a multiplier and a divider. These can be used to specify tuplets.
+E.g. "a4_8*2/3 b c5 d c b4 " specifies 6 notes that together form two triplets of eighth notes.
+Multiplier and divider are remembered until a new duration is specified.
+
+After the dots one can optionally specify additional properties. Currently the following properties are supported:
+vol (volume), tempo (tempo), lag (lag), pdur (played duration, aka legato).
+Properties come in two variants: animated and fixed. An animated property will vary over the course of time until
+a new value for the property is specified. Animated properties are created by including their values in curly brackets {}. A fixed property remains fixed over the course of time until a new value for the property is specified. A fixed property is
+specified by enclosing its value in square brackets [].
+
+E.g. here's an example of a crescendo (becoming louder):
+
+"c4\\vol{0.3} d e f g a b c5\\vol{0.9}"
+
+In the above example, the c4 starts at volume 0.3 and the phrase ends at volume 0.9.
+The volumes of the notes in between gruadually rise so as to get a crescendo.
+Note: for now only linear animation is supported.
+
+If on the other hand we would have written:
+
+"c4\\vol[0.3] d e f g a b c5\\vol[0.9]"
+
+Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
+suddenly had volume 0.9.
 
 
 CLASSMETHODS::
@@ -268,6 +319,52 @@ s.waitForBoot({
 		\tempo, p.tempoPattern.trace,
 	);
 	~player = q.play;
+});
+)
+::
+
+Multiple voices: first part of J.S. Bach's bwv784 2-voice invention 13
+
+code::
+(
+s.waitForBoot({
+	var v1 = Panola.new("r_16\\tempo[80]\\pdur[1.0]\\vol{0.7} e4 a c5 b4 e b d5 c_8\\pdur[0.2]\\vol{0.9} e g#4 e5 "
+		"a4_16\\vol{0.7} e4_16\\pdur[1.0] a c5 b4 e b d5 c_8\\vol{0.9}\\pdur[0.2] a4 r_4\\vol{0.7} "
+		"r_16 e5\\vol{0.3}\\pdur[1.0] c e a4 c5 e4 g f_8\\vol{0.9}\\pdur[0.2] a\\vol{0.7} d5 f_8.\\vol{0.3} "
+		"d_16\\pdur[1.0] b4 d5 g4 b d f e_8\\vol{0.9}\\pdur[0.2] g\\vol{0.7} c5 e_8.\\vol{0.3} "
+		"c5_16\\pdur[1.0] a4 c5 f4_8\\vol{0.9}\\pdur[0.2] d5_8.\\vol{0.3}\\pdur[1.0] b4_16 g b "
+		"e_8\\vol{0.9}\\pdur[0.2] c5_8.\\vol{0.3}\\pdur[1.0] "
+		"a4_16 f a d_8\\vol{0.9}\\pdur[0.2] b_8 c5_8 r_8 r_4 ");
+	var v2 = Panola.new("a2_8\\tempo[80]\\vol{0.6}\\pdur[0.2] a3_4\\pdur[1.0]\\vol{0.7} g#_8\\vol{0.6} a_16\\pdur[0.2]\\vol{0.7} e3\\pdur[1.0] a c4 b3 e b d4 "
+		"c_8\\pdur[0.2]\\vol{0.9} a3 g# e a_16\\vol{0.7} e\\pdur[1.0] a c4 b3 e b d4 "
+		"c_8\\pdur[0.2]\\vol{0.9} a3 c4 a3 "
+		"d4_16\\vol{0.7} a3\\pdur[1.0] f a d f a2 c3 "
+		"b2_8\\vol{0.3}\\pdur[0.2] d3 g b_8.\\vol{0.7}\\pdur[1.0] g3_16 e g c e g2 b "
+		"a_8\\vol{0.3}\\pdur[0.2] c3\\vol{0.6} d_16\\pdur[1.0] f b2 d3 g2_8\\vol[0.7]\\pdur[0.2] b c3_16\\vol{0.7}\\pdur[1.0] e a2 c3 "
+		"f2_8\\vol{0.3}\\pdur[0.2] d g_16\\vol{0.4} g3\\pdur[1.0] f g c\\vol{0.6}\\pdur[0.2] g\\pdur[1.0] "
+		"c4 e d g3 d4 f e_8\\vol{0.7}\\pdur[0.2] c ");
+
+	var v1pat = Pbind(
+		\instrument, \default,
+		\midinote, v1.midinotePattern,
+		\dur, v1.durationPattern,
+		\amp, v1.volumePattern,
+		\legato, v1.pdurPattern,
+		\lag, v1.lagPattern,
+		\tempo, v1.tempoPattern/5.0,
+	);
+
+	var v2pat = Pbind(
+		\instrument, \default,
+		\midinote, v2.midinotePattern,
+		\dur, v2.durationPattern,
+		\amp, v2.volumePattern,
+		\legato, v2.pdurPattern,
+		\lag, v2.lagPattern,
+	);
+
+	var all = Ppar([v1pat, v2pat], 1);
+	~player = all.play;
 });
 )
 ::
