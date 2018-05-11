@@ -10,29 +10,30 @@ Panola {
 	var <gVOLUME_DEFAULT;
 	var <gPLAYDUR_DEFAULT;
 	var <gLAG_DEFAULT;
+	var <gTEMPO_DEFAULT;
 
 	*new {
 		|notation, octave_default="4", dur_default="4", modifier_default="",
 		 mult_default="1", div_default="1", vol_default="0.5",
-		 playdur_default="0.9", lag_default="0"|
+		playdur_default="0.9", lag_default="0", tempo_default="80"|
 
-		^super.new.init(notation, octave_default, dur_default, modifier_default, mult_default, div_default, vol_default, playdur_default, lag_default);
+		^super.new.init(notation, octave_default, dur_default, modifier_default, mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
 
 	}
 
 	init {
 		| notation, octave_default, dur_default, modifier_default,
 		  mult_default, div_default, vol_default, playdur_default,
-		  lag_default |
+		  lag_default, tempo_default |
 		this.init_notation(notation, octave_default, dur_default, modifier_default,
-			mult_default, div_default, vol_default, playdur_default, lag_default);
+			mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
 		this.init_midilookup();
 	}
 
 	init_notation {
 		| notation, octave_default, dur_default, modifier_default,
 		  mult_default, div_default, vol_default, playdur_default,
-		  lag_default |
+		  lag_default, tempo_default |
 
 		var cOCTAVE_DEFAULT = octave_default;
 		var cDURATION_DEFAULT = dur_default;
@@ -42,6 +43,7 @@ Panola {
 		var cVOLUME_DEFAULT = vol_default;
 		var cPLAYDUR_DEFAULT = playdur_default;
 		var cLAG_DEFAULT = lag_default;
+		var cTEMPO_DEFAULT = tempo_default;
 		var noteletters;
 
 		gOCTAVE_DEFAULT = cOCTAVE_DEFAULT;
@@ -52,6 +54,7 @@ Panola {
 		gVOLUME_DEFAULT = cVOLUME_DEFAULT;
 		gPLAYDUR_DEFAULT = cPLAYDUR_DEFAULT;
 		gLAG_DEFAULT = cLAG_DEFAULT;
+		gTEMPO_DEFAULT = cTEMPO_DEFAULT;
 
 		if (notation[notation.size-1] != $ ) {
 			notation = notation++" ";
@@ -82,7 +85,7 @@ Panola {
 			var durationregexp = "(\\d+)";
 			var multiplierregexp = "(\\d+)";
 			var dividerregexp = "(\\d+)";
-			var propertyregex = "(vol|pdur|lag)";
+			var propertyregex = "(vol|pdur|lag|tempo)";
 			var propertytyperegex = "({|\\[)";
 			var propertyvalueregex = "[0-9]*\\.?[0-9]+";
 			var aftermodifier = "";
@@ -340,5 +343,7 @@ Panola {
 		^this.pr_animatedPattern("pdur", "fixed", gPLAYDUR_DEFAULT);
 	}
 
-
+	tempoPattern {
+		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/60.0);
+	}
 }

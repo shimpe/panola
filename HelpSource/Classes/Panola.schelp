@@ -39,6 +39,9 @@ legato value to use if not explicitly specified (default=0.9)
 ARGUMENT:: lag_default
 lag value to use if not explicitly specified(default=0)
 
+ARGUMENT:: tempo_default
+tempo value to use if not explicitly specified(default=80 bpm)
+
 returns:: an object from which several patterns can be asked
 
 
@@ -93,6 +96,9 @@ which legato value to use by default
 
 ARGUMENT:: lag_default
 which lag to use by default
+
+ARGUMENT:: tempo_default
+which tempo to use by default
 
 returns:: nothing
 
@@ -175,6 +181,11 @@ pattern generating the successive notated durations to realize the pattern (most
 
 returns:: pattern generating the successive notated durations to realize the pattern
 
+METHOD:: tempoPattern
+pattern generating the successsive tempo values to realize the pattern
+
+returns:: pattern generating the successsive tempo values to realize the pattern
+
 METHOD:: note_to_midi
 internal lookup table
 
@@ -212,7 +223,6 @@ default lag
 
 returns:: internally initialized Panola instance
 
-
 EXAMPLES::
 
 Using Panola without pattern:
@@ -243,10 +253,10 @@ Using Panola in a pattern
 code::
 (
 s.waitForBoot({
-	p = Panola.new("c4\\vol{0.4}\\pdur[0.9] d e c c d e c "
+	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
 		"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
-		"g_8\\pdur[0.01] a g f e_4\\pdur[0.9] c g_8\\pdur[0.01] a g f e_4\\pdur[0.9] c_4 "
-		"c g3 c4_2 c_4 g3 c4_2\\vol{0.2}");
+		"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
+		"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
 
 	q = Pbind(
 		\instrument, \default,
@@ -255,6 +265,7 @@ s.waitForBoot({
 		\amp, p.volumePattern,
 		\legato, p.pdurPattern,
 		\lag, p.lagPattern,
+		\tempo, p.tempoPattern.trace,
 	);
 	~player = q.play;
 });
