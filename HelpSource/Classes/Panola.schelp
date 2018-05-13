@@ -36,6 +36,10 @@ After the dots one can optionally specify a multiplier and a divider. These can 
 E.g. "a4_8*2/3 b c5 d c b4 " specifies 6 notes that together form two triplets of eighth notes.
 Multiplier and divider are remembered until a new duration is specified.
 
+Notes can be grouped using angular brackets to make chords. The properties of the first note in the chord are used for the complete chord. Properties attached to the second and later notes in the chord (other than octave number and note modifier) are ignored. The following makes a chord of four notes:
+
+"<c4 e4 g c5>"
+
 After the dots one can optionally specify additional properties. Currently the following properties are supported:
 vol (volume), tempo (tempo), lag (lag), pdur (played duration, aka legato).
 Properties come in two variants: animated and fixed. An animated property will vary over the course of time until

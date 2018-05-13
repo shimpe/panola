@@ -3,7 +3,7 @@ Panola {
 	var <note_to_midi;
 	var <gOCTAVE_DEFAULT;
 	var <gOCTAVE_DEFAULT;
-    var <gDURATION_DEFAULT;
+	var <gDURATION_DEFAULT;
 	var <gMODIFIER_DEFAULT;
 	var <gMULTIPLIER_DEFAULT;
 	var <gDIVIDER_DEFAULT;
@@ -15,7 +15,7 @@ Panola {
 
 	*new {
 		|notation, octave_default="4", dur_default="4", modifier_default="",
-		 mult_default="1", div_default="1", vol_default="0.5",
+		mult_default="1", div_default="1", vol_default="0.5",
 		playdur_default="0.9", lag_default="0", tempo_default="80"|
 
 		^super.new.init(notation, octave_default, dur_default, modifier_default, mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
@@ -24,8 +24,8 @@ Panola {
 
 	init {
 		| notation, octave_default, dur_default, modifier_default,
-		  mult_default, div_default, vol_default, playdur_default,
-		  lag_default, tempo_default |
+		mult_default, div_default, vol_default, playdur_default,
+		lag_default, tempo_default |
 		this.init_notation(notation, octave_default, dur_default, modifier_default,
 			mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
 		this.init_midilookup();
@@ -33,8 +33,8 @@ Panola {
 
 	init_notation {
 		| notation, octave_default, dur_default, modifier_default,
-		  mult_default, div_default, vol_default, playdur_default,
-		  lag_default, tempo_default |
+		mult_default, div_default, vol_default, playdur_default,
+		lag_default, tempo_default |
 
 		var cOCTAVE_DEFAULT = octave_default;
 		var cDURATION_DEFAULT = dur_default;
@@ -47,6 +47,8 @@ Panola {
 		var cTEMPO_DEFAULT = tempo_default;
 		var cDOTS_DEFAULT = 0;
 		var noteletters;
+		var accumulatechord = false;
+		var accumulated = [];
 
 		gOCTAVE_DEFAULT = cOCTAVE_DEFAULT;
 		gDURATION_DEFAULT = cDURATION_DEFAULT;
@@ -63,6 +65,7 @@ Panola {
 			notation = notation++" ";
 		};
 		noteletters = [];
+		notation = notation.replace("<", " < ").replace(">", " > ");
 		notation.findRegexp("[^\\ ]+(\\ )+").do({
 			|x|
 			if (x[1].stripWhiteSpace.compare("") != 0) {
@@ -106,93 +109,110 @@ Panola {
 			var propertyvalue = "";
 			var props = [];
 
-			aftermodifier = afterletter;
-			if (afterletter.findRegexpAt(modifierregexp,0).notNil) {
-				modifier = afterletter.findRegexpAt(modifierregexp,0)[0];
-				aftermodifier = afterletter.copyRange(afterletter.findRegexpAt(modifierregexp,0)[1], afterletter.size-1);
-			};
-			afteroctave = aftermodifier;
-			if (aftermodifier.findRegexpAt(octaveregexp, 0).notNil) {
-				octave = aftermodifier.findRegexpAt(octaveregexp,0)[0];
-				cOCTAVE_DEFAULT = octave; // update octave default
-				afteroctave = aftermodifier.copyRange(aftermodifier.findRegexpAt(octaveregexp,0)[1], aftermodifier.size-1);
-			};
-			if (afteroctave[0].notNil && afteroctave[0] == $_) {
-				afteroctave = afteroctave.copyRange(1, afteroctave.size-1);
-			};
-			afterduration = afteroctave;
-			if (afteroctave.findRegexpAt(durationregexp, 0).notNil) {
-				duration = afteroctave.findRegexpAt(durationregexp,0)[0];
-				cDURATION_DEFAULT = duration; // update duration default, reset multiplier, divider, num_of_dots
-				cMULTIPLIER_DEFAULT = "1";
-				divider = "1";
-				cDIVIDER_DEFAULT = "1";
-				multiplier = "1";
-				cDOTS_DEFAULT = 0;
-				num_of_dots = 0;
-				afterduration = afteroctave.copyRange(afteroctave.findRegexpAt(durationregexp,0)[1], afteroctave.size-1);
-			};
-			afterdurationextension = afterduration;
-			if (afterduration.findRegexpAt(durationextensionregexp, 0).notNil) {
-				num_of_dots = afterduration.findRegexpAt(durationextensionregexp,0)[1];
-				cDOTS_DEFAULT = num_of_dots; // update dots default
-				afterdurationextension = afterduration.copyRange(afterduration.findRegexpAt(durationextensionregexp,0)[1], afterduration.size-1);
-			};
-			if (afterdurationextension[0].notNil && afterdurationextension[0] == $*) {
-				afterdurationextension = afterdurationextension.copyRange(1, afterdurationextension.size-1);
-				aftermultiplier = afterdurationextension;
-				if (afterdurationextension.findRegexpAt(multiplierregexp, 0).notNil) {
-					multiplier = afterdurationextension.findRegexpAt(multiplierregexp, 0)[0];
-					cMULTIPLIER_DEFAULT = multiplier; // update multiplier default
-					aftermultiplier = afterdurationextension.copyRange(afterdurationextension.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
-				};
+			note = note.stripWhiteSpace;
+
+			if (note.compare("<") == 0) {
+				accumulated = [];
+				accumulatechord = true;
 			} {
-				aftermultiplier = afterdurationextension;
-			};
-			if (aftermultiplier[0].notNil && aftermultiplier[0] == $/) {
-				aftermultiplier = aftermultiplier.copyRange(1, aftermultiplier.size-1);
-				afterdivider = aftermultiplier;
-				if (aftermultiplier.findRegexpAt(dividerregexp, 0).notNil) {
-					divider = aftermultiplier.findRegexpAt(dividerregexp, 0)[0];
-					cDIVIDER_DEFAULT = divider;
-					afterdivider = aftermultiplier.copyRange(aftermultiplier.findRegexpAt(dividerregexp, 0)[1], aftermultiplier.size-1);
-				};
-			} {
-				afterdivider = aftermultiplier;
-			};
-			afterproperty = afterdivider;
-			while({afterproperty[0] == $\\}, {
-				var type = "fixed";
-				var val = "0.5";
-				var prop = "vol";
-				afterproperty = afterproperty.copyRange(1, afterproperty.size-1);
-				if (afterproperty.findRegexpAt(propertyregex, 0).notNil) {
-					extractedproperty = afterproperty.findRegexpAt(propertyregex, 0)[0];
-					afterextractedproperty = afterproperty.copyRange(afterproperty.findRegexpAt(propertyregex, 0)[1], afterproperty.size-1);
-					propertytype = afterextractedproperty.findRegexpAt(propertytyperegex, 0);
-					if (propertytype.notNil) {
-						prop = extractedproperty;
-						if (propertytype[0].compare("{") == 0) {
-							type = "anim";
-						} {
-							type = "fixed";
+				if (note.compare(">") == 0) {
+					accumulatechord = false;
+					parsed_notation = parsed_notation.add(accumulated);
+				} {
+					aftermodifier = afterletter;
+					if (afterletter.findRegexpAt(modifierregexp,0).notNil) {
+						modifier = afterletter.findRegexpAt(modifierregexp,0)[0];
+						aftermodifier = afterletter.copyRange(afterletter.findRegexpAt(modifierregexp,0)[1], afterletter.size-1);
+					};
+					afteroctave = aftermodifier;
+					if (aftermodifier.findRegexpAt(octaveregexp, 0).notNil) {
+						octave = aftermodifier.findRegexpAt(octaveregexp,0)[0];
+						cOCTAVE_DEFAULT = octave; // update octave default
+						afteroctave = aftermodifier.copyRange(aftermodifier.findRegexpAt(octaveregexp,0)[1], aftermodifier.size-1);
+					};
+					if (afteroctave[0].notNil && afteroctave[0] == $_) {
+						afteroctave = afteroctave.copyRange(1, afteroctave.size-1);
+					};
+					afterduration = afteroctave;
+					if (afteroctave.findRegexpAt(durationregexp, 0).notNil) {
+						duration = afteroctave.findRegexpAt(durationregexp,0)[0];
+						cDURATION_DEFAULT = duration; // update duration default, reset multiplier, divider, num_of_dots
+						cMULTIPLIER_DEFAULT = "1";
+						divider = "1";
+						cDIVIDER_DEFAULT = "1";
+						multiplier = "1";
+						cDOTS_DEFAULT = 0;
+						num_of_dots = 0;
+						afterduration = afteroctave.copyRange(afteroctave.findRegexpAt(durationregexp,0)[1], afteroctave.size-1);
+					};
+					afterdurationextension = afterduration;
+					if (afterduration.findRegexpAt(durationextensionregexp, 0).notNil) {
+						num_of_dots = afterduration.findRegexpAt(durationextensionregexp,0)[1];
+						cDOTS_DEFAULT = num_of_dots; // update dots default
+						afterdurationextension = afterduration.copyRange(afterduration.findRegexpAt(durationextensionregexp,0)[1], afterduration.size-1);
+					};
+					if (afterdurationextension[0].notNil && afterdurationextension[0] == $*) {
+						afterdurationextension = afterdurationextension.copyRange(1, afterdurationextension.size-1);
+						aftermultiplier = afterdurationextension;
+						if (afterdurationextension.findRegexpAt(multiplierregexp, 0).notNil) {
+							multiplier = afterdurationextension.findRegexpAt(multiplierregexp, 0)[0];
+							cMULTIPLIER_DEFAULT = multiplier; // update multiplier default
+							aftermultiplier = afterdurationextension.copyRange(afterdurationextension.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
 						};
-						afterextractedproperty = afterextractedproperty.copyRange(propertytype[1], afterextractedproperty.size-1);
-						val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
-						props = props.add([prop, type, val[0]]);
-						afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
+					} {
+						aftermultiplier = afterdurationextension;
+					};
+					if (aftermultiplier[0].notNil && aftermultiplier[0] == $/) {
+						aftermultiplier = aftermultiplier.copyRange(1, aftermultiplier.size-1);
+						afterdivider = aftermultiplier;
+						if (aftermultiplier.findRegexpAt(dividerregexp, 0).notNil) {
+							divider = aftermultiplier.findRegexpAt(dividerregexp, 0)[0];
+							cDIVIDER_DEFAULT = divider;
+							afterdivider = aftermultiplier.copyRange(aftermultiplier.findRegexpAt(dividerregexp, 0)[1], aftermultiplier.size-1);
+						};
+					} {
+						afterdivider = aftermultiplier;
+					};
+					afterproperty = afterdivider;
+					while({afterproperty[0] == $\\}, {
+						var type = "fixed";
+						var val = "0.5";
+						var prop = "vol";
+						afterproperty = afterproperty.copyRange(1, afterproperty.size-1);
+						if (afterproperty.findRegexpAt(propertyregex, 0).notNil) {
+							extractedproperty = afterproperty.findRegexpAt(propertyregex, 0)[0];
+							afterextractedproperty = afterproperty.copyRange(afterproperty.findRegexpAt(propertyregex, 0)[1], afterproperty.size-1);
+							propertytype = afterextractedproperty.findRegexpAt(propertytyperegex, 0);
+							if (propertytype.notNil) {
+								prop = extractedproperty;
+								if (propertytype[0].compare("{") == 0) {
+									type = "anim";
+								} {
+									type = "fixed";
+								};
+								afterextractedproperty = afterextractedproperty.copyRange(propertytype[1], afterextractedproperty.size-1);
+								val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
+								props = props.add([prop, type, val[0]]);
+								afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
+							};
+						};
+					});
+
+					fullnote = if (letter == $r) {letter} {letter++modifier++octave};
+					// ("note: "++fullnote).postln;
+					// ("dur: " ++ duration ++ "*" ++ multiplier ++ "/" ++ divider).postln;
+					// ("props: "++props).postln;
+					// ("").postln;
+
+					if (accumulatechord) {
+						accumulated = accumulated.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
+					} {
+						parsed_notation = parsed_notation.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
 					};
 				};
-			});
-
-			fullnote = if (letter == $r) {letter} {letter++modifier++octave};
-			// ("note: "++fullnote).postln;
-			// ("dur: " ++ duration ++ "*" ++ multiplier ++ "/" ++ divider).postln;
-			// ("props: "++props).postln;
-			// ("").postln;
-
-			parsed_notation = parsed_notation.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
+			};
 		});
+
 	}
 
 	init_midilookup {
@@ -242,15 +262,30 @@ Panola {
 	notationnotePattern {
 		var notelist = parsed_notation.collect({
 			| el |
-			el[0];
+			if (el[0].class == Array) { // chord
+				"< "++el.collect({
+					|note|
+					note[0];
+				}).join(" ")++" >";
+			} {
+				el[0];
+			};
 		});
+		parsed_notation.postln;
 		^Pseq(notelist, 1);
 	}
 
 	midinotePattern {
 		var notelist = parsed_notation.collect({
 			| el |
-			note_to_midi[el[0].asString];
+			if (el[0].class == Array) {
+				el.collect({
+					| note |
+					note_to_midi[note[0].asString]
+				});
+			} {
+				note_to_midi[el[0].asString];
+			}
 		});
 		^Pseq(notelist, 1);
 	}
@@ -258,10 +293,11 @@ Panola {
 	notationdurationPattern {
 		var durlist = parsed_notation.collect({
 			| el |
-			var duration = el[1].stripWhiteSpace;
-			var num_of_dots = el[2];
-			var multiplier = el[3];
-			var divider = el[4];
+			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
+			var duration = dur_el[1].stripWhiteSpace;
+			var num_of_dots = dur_el[2];
+			var multiplier = dur_el[3];
+			var divider = dur_el[4];
 			var dots = "";
 			var str = "";
 			num_of_dots.asInteger.do({
@@ -275,10 +311,11 @@ Panola {
 	durationPattern {
 		var durlist = parsed_notation.collect({
 			| el |
-			var duration = el[1];
-			var num_of_dots = el[2];
-			var multiplier = el[3];
-			var divider = el[4];
+			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
+			var duration = dur_el[1];
+			var num_of_dots = dur_el[2];
+			var multiplier = dur_el[3];
+			var divider = dur_el[4];
 			(1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
 		});
 		^Pseq(durlist, 1);
@@ -291,7 +328,11 @@ Panola {
 		// extract only properties
 		var proplist = parsed_notation.collect({
 			| el |
-			el[5];
+			if (el[0].class == Array) {
+				el[0][5]; // properties of first note are used for all the chord
+			} {
+				el[5];
+			};
 		});
 		// keep only volume properties + add distance between current and previous volume property spec
 		var volprops = [];
