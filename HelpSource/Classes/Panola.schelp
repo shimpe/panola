@@ -10,8 +10,8 @@ See https://github.com/shimpe/expremigen
 
 Mispel elements that are not supported in this supercollider version include:
     - passing animation options (tweening) for the animated properties
-    - chords
     - specifying multiple tracks in one string
+    - specifying midi control change messages (e.g. animating pitchbend over time with much finer time resolution than the note events)
 
 A Panola notation string specifies a phrase of notes.
 Notenames can be a, b, c, d, e, f, g. Optional note modifiers can be
@@ -60,6 +60,30 @@ If on the other hand we would have written:
 
 Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
 suddenly had volume 0.9.
+
+Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind:
+
+(
+~phrase = Panola.new("c d e f g");
+~pattern = ~phrase.asPbind(\default); // instrument as parameter
+~player = ~pattern.play;
+)
+
+or, more flexibly, by extracting individual information patterns:
+
+(
+~phrase = Panola.new("c d e f g");
+~pattern = Pbind(
+	\instrument, \default
+	\midinote, ~phrase.midinotePattern,
+	\ampl, ~phrase.volumePattern,
+	\dur, ~phrase.durationPattern,
+	\legato, ~phrase.pdurPattern,
+	\lag, ~phrase.lagPattern,
+	\temp, ~phrase.tempoPattern
+); // instrument as parameter
+~player = ~pattern.play;
+)
 
 
 CLASSMETHODS::
