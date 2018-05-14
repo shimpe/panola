@@ -407,4 +407,17 @@ Panola {
 	tempoPattern {
 		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(4*60.0));
 	}
+
+	asPbind {
+		| instrument |
+		^Pbind(
+			\instrument, instrument,
+			\midinote, this.midinotePattern,
+			\dur, this.durationPattern,
+			\lag, this.lagPattern,
+			\legato, this.pdurPattern,
+			\amp, this.volumePattern,
+			\tempo, this.tempoPattern
+		);
+	}
 }
