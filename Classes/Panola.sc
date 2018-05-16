@@ -367,9 +367,7 @@ Panola {
 				distance = distance + 1;
 			};
 		});
-		if (distance != 0) {
-			volprops = volprops.add([prop_name, "fixed", currval, distance]);
-		};
+		volprops = volprops.add([prop_name, "fixed", currval, distance]);
 		// now turn into patterns
 		clumped = volprops.slide(2, 1).clump(2);
 		clumpedsize = clumped.size;
@@ -462,7 +460,7 @@ Panola {
 				};
 				mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
 			});
-			mapped_props = mapped_props.flatten.postln;
+			mapped_props = mapped_props.flatten;
 			^Pbind(
 				\instrument, instrument,
 				\midinote, this.midinotePattern,
