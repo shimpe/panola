@@ -85,6 +85,42 @@ or, more flexibly, by extracting individual information patterns:
 ~player = ~pattern.play;
 )
 
+In addition to these predefined properties, you can also use any user defined pattern, e.g.
+
+(
+~phrase = Panola.new("c d\\myprop{0.1} e f g a\\myprop{0.6}");
+~pattern = ~phrase.customPropertyPattern("myprop"); // extract only myprop as a pattern
+~stream = ~pattern.asStream;
+10.do({
+	| i |
+	~stream.next.postln;
+});
+)
+// make a pbind in which the myprop appears as one of the keys, with a default value of 0 for myprop
+(
+~pbind = ~phrase.asPbind(\default);
+~stream = ~pbind.patternpairs[13].asStream;
+10.do({
+	| i |
+	~stream.next.postln;
+});
+)
+// make a pbind in which the myprop appears as one of the keys, with a customized default value of 0.4 for myprop
+// (such default values are used if no values for myprop are specified yet, e.g. in the beginning of a Panola string,
+//  before any myprop is defined).
+(
+~pbind = ~phrase.asPbind(\default, custom_property_defaults:Dictionary.newFrom(["myprop", 0.4]));
+~stream = ~pbind.patternpairs[13].asStream;
+10.do({
+	| i |
+	~stream.next.postln;
+});
+)
+// make pbind in which only the standard panola keys are included
+(
+~pbind = ~phrase.asPbind(\default, include_custom_properties:false);
+~pbind.patternpairs.postln;
+)
 
 CLASSMETHODS::
 
