@@ -12,6 +12,7 @@ Panola {
 	var <gLAG_DEFAULT;
 	var <gDOTS_DEFAULT;
 	var <gTEMPO_DEFAULT;
+	var <>customProperties;
 
 	*new {
 		|notation, octave_default="4", dur_default="4", modifier_default="",
@@ -26,6 +27,13 @@ Panola {
 		| notation, octave_default, dur_default, modifier_default,
 		mult_default, div_default, vol_default, playdur_default,
 		lag_default, tempo_default |
+		this.customProperties = Dictionary.newFrom([
+//          property name, pBind key
+			"vol", \amp,
+			"tempo", \tempo,
+			"lag", \lag,
+			"pdur", \legato,
+		]);
 		this.init_notation(notation, octave_default, dur_default, modifier_default,
 			mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
 		this.init_midilookup();
@@ -93,7 +101,7 @@ Panola {
 			var durationextensionregexp = "(\\.)+";
 			var multiplierregexp = "(\\d+)";
 			var dividerregexp = "(\\d+)";
-			var propertyregex = "(vol|pdur|lag|tempo)";
+			var propertyregex = "(vol|pdur|lag|tempo|[^{\\[\\\\]+)";
 			var propertytyperegex = "({|\\[)";
 			var propertyvalueregex = "[0-9]*\\.?[0-9]+";
 			var aftermodifier = "";
@@ -193,6 +201,7 @@ Panola {
 								afterextractedproperty = afterextractedproperty.copyRange(propertytype[1], afterextractedproperty.size-1);
 								val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
 								props = props.add([prop, type, val[0]]);
+								this.customProperties.put(prop, prop.asSymbol);
 								afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
 							};
 						};
@@ -201,7 +210,7 @@ Panola {
 					fullnote = if (letter == $r) {letter} {letter++modifier++octave};
 					// ("note: "++fullnote).postln;
 					// ("dur: " ++ duration ++ "*" ++ multiplier ++ "/" ++ divider).postln;
-					// ("props: "++props).postln;
+					//("props: "++props).postln;
 					// ("").postln;
 
 					if (accumulatechord) {
@@ -271,7 +280,7 @@ Panola {
 				el[0];
 			};
 		});
-		parsed_notation.postln;
+		//parsed_notation.postln;
 		^Pseq(notelist, 1);
 	}
 
@@ -333,7 +342,7 @@ Panola {
 			} {
 				el[5];
 			};
-		});
+		});//.postln;
 		// keep only volume properties + add distance between current and previous volume property spec
 		var volprops = [];
 		var distance = 0;
@@ -355,7 +364,6 @@ Panola {
 				};
 			});
 			if (foundVol.not) {
-				//volprops = volprops.add([]);
 				distance = distance + 1;
 			};
 		});
@@ -408,16 +416,59 @@ Panola {
 		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(4*60.0));
 	}
 
+	customPropertyPattern {
+		| customstring, default=0 |
+		^(this.pr_animatedPattern(customstring, "fixed", default));
+	}
+
 	asPbind {
-		| instrument |
-		^Pbind(
-			\instrument, instrument,
-			\midinote, this.midinotePattern,
-			\dur, this.durationPattern,
-			\lag, this.lagPattern,
-			\legato, this.pdurPattern,
-			\amp, this.volumePattern,
-			\tempo, this.tempoPattern
-		);
+		| instrument, include_custom_properties=true, custom_property_defaults=nil|
+		if (custom_property_defaults.isNil) {
+			custom_property_defaults = Dictionary.newFrom([
+				"vol", gVOLUME_DEFAULT,
+				"lag", gLAG_DEFAULT,
+				"pdur", gPLAYDUR_DEFAULT,
+				"tempo", gTEMPO_DEFAULT,
+			]);
+		} {
+			custom_property_defaults.put("vol", gVOLUME_DEFAULT);
+			custom_property_defaults.put("lag", gLAG_DEFAULT);
+			custom_property_defaults.put("pdur", gPLAYDUR_DEFAULT);
+			custom_property_defaults.put("tempo", gTEMPO_DEFAULT);
+		};
+		if (include_custom_properties.not) {
+			^Pbind(
+				\instrument, instrument,
+				\midinote, this.midinotePattern,
+				\dur, this.durationPattern,
+				\lag, this.lagPattern,
+				\legato, this.pdurPattern,
+				\amp, this.volumePattern,
+				\tempo, this.tempoPattern
+			);
+		} {
+			var mapped_props = [];
+			this.customProperties.keysValuesDo({
+				|stringproperty, pbindkey|
+				var default_val = 0.0;
+				var scale = 1.0;
+				if (custom_property_defaults.notNil) {
+					if (custom_property_defaults[stringproperty].notNil) {
+						default_val = custom_property_defaults[stringproperty];
+					};
+				};
+				if (stringproperty.compare("tempo") == 0) {
+					scale = (1/(4*60.0));
+				};
+				mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
+			});
+			mapped_props = mapped_props.flatten.postln;
+			^Pbind(
+				\instrument, instrument,
+				\midinote, this.midinotePattern,
+				\dur, this.durationPattern,
+				*mapped_props
+			);
+		};
 	}
 }
