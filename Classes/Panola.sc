@@ -420,7 +420,7 @@ Panola {
 	}
 
 	asPbind {
-		| instrument, include_custom_properties=true, custom_property_defaults=nil|
+		| instrument=\default, include_custom_properties=true, custom_property_defaults=nil|
 		if (custom_property_defaults.isNil) {
 			custom_property_defaults = Dictionary.newFrom([
 				"vol", gVOLUME_DEFAULT,

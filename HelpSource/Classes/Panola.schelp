@@ -408,27 +408,36 @@ s.waitForBoot({
 		"f2_8\\vol{0.3}\\pdur[0.2] d g_16\\vol{0.4} g3\\pdur[1.0] f g c\\vol{0.6}\\pdur[0.2] g\\pdur[1.0] "
 		"c4 e d g3 d4 f e_8\\vol{0.7}\\pdur[0.2] c ");
 
-	var v1pat = Pbind(
-		\instrument, \default,
-		\midinote, v1.midinotePattern,
-		\dur, v1.durationPattern,
-		\amp, v1.volumePattern,
-		\legato, v1.pdurPattern,
-		\lag, v1.lagPattern,
-		\tempo, v1.tempoPattern/5.0,
-	);
-
-	var v2pat = Pbind(
-		\instrument, \default,
-		\midinote, v2.midinotePattern,
-		\dur, v2.durationPattern,
-		\amp, v2.volumePattern,
-		\legato, v2.pdurPattern,
-		\lag, v2.lagPattern,
-	);
-
-	var all = Ppar([v1pat, v2pat], 1);
+	var all = Ppar([v1.asPbind, v2.asPbind], 1);
 	~player = all.play;
+});
+)
+::
+
+Driving a synth using custom properties
+
+code::
+(
+s.waitForBoot({
+	var line;
+
+	SynthDef (\sc303 , {  arg  out=0, freq=440, wave=0, ctf=100, res=0.2,
+		sus=0, dec=1.0, env=1000, gate=1, vol=0.2;
+		var  filEnv, volEnv, waves;
+		volEnv =  EnvGen .ar( Env .new([10e-10, 1, 1, 10e-10], [0.01, sus, dec],  'exp' ), gate);
+		filEnv =  EnvGen .ar( Env .new([10e-10, 1, 10e-10], [0.01, dec],  'exp' ), gate);
+		waves = [ Saw .ar(freq, volEnv),  Pulse .ar(freq, 0.5, volEnv)];
+		Out .ar(out,  RLPF .ar(  Select .ar(wave, waves), ctf + (filEnv * env), res).dup * vol);
+	}).add;
+
+	s.sync;
+
+	line = Panola.new(
+		"a4_16\\tempo[120]\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a3 a4 a a a5 a4 a a a3 a4 a5 a4 b- g\\res{0.05}"
+		"a4_16 a a3 a4 a a a5\\sus{0.2} a4 a\\ctf{3000} a a3 a4 a5 a4 b- g\\res{0.2}"
+		"a4_16 a a3 a4 a a a5 a4 a a a3 a4 a5 a4 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{50}"
+	);
+	~player = line.asPbind(\sc303).play;
 });
 )
 ::
