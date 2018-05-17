@@ -422,7 +422,7 @@ s.waitForBoot({
 	var line;
 
 	SynthDef (\sc303 , {  arg  out=0, freq=440, wave=0, ctf=100, res=0.2,
-		sus=0, dec=1.0, env=1000, gate=1, vol=0.2;
+		sus=0, dec=1.0, env=1000, gate=1, vol=0.1;
 		var  filEnv, volEnv, waves;
 		volEnv =  EnvGen .ar( Env .new([10e-10, 1, 1, 10e-10], [0.01, sus, dec],  'exp' ), gate);
 		filEnv =  EnvGen .ar( Env .new([10e-10, 1, 10e-10], [0.01, dec],  'exp' ), gate);
@@ -433,9 +433,9 @@ s.waitForBoot({
 	s.sync;
 
 	line = Panola.new(
-		"a4_16\\tempo[120]\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a3 a4 a a a5 a4 a a a3 a4 a5 a4 b- g\\res{0.05}"
-		"a4_16 a a3 a4 a a a5\\sus{0.2} a4 a\\ctf{3000} a a3 a4 a5 a4 b- g\\res{0.2}"
-		"a4_16 a a3 a4 a a a5 a4 a a a3 a4 a5 a4 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{50}"
+		"a2_16\\wave[0]\\vol{0.05}\\tempo{120}\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.05}"
+		"a2_16\\wave[0] a a a1 a2 a a3\\sus{0.2} a2 a\\ctf{3000} a a1 a2 a3 a2 b- g\\res{0.2}"
+		"a2_16\\wave[0] a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{10}"
 	);
 	~player = line.asPbind(\sc303).play;
 });
