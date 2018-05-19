@@ -39,35 +39,54 @@ Panola {
 		this.init_midilookup();
 	}
 
+	pr_read_token {
+		| string_so_far, token_regexp, token_default="", semantic_token_action=nil, token_not_found_action=nil |
+		var token, aftertoken;
+		token = token_default;
+		aftertoken = string_so_far;
+		if (string_so_far.findRegexpAt(token_regexp,0).notNil) {
+			token = string_so_far.findRegexpAt(token_regexp,0)[0];
+			if (token.notNil && semantic_token_action.notNil) {
+				semantic_token_action.(token);
+			};
+			if (token.isNil && token_not_found_action.notNil) {
+				token_not_found_action.();
+			};
+			aftertoken = string_so_far.copyRange(string_so_far.findRegexpAt(token_regexp,0)[1], string_so_far.size-token.size);
+		};
+		^[token, aftertoken];
+	}
+
 	init_notation {
 		| notation, octave_default, dur_default, modifier_default,
 		mult_default, div_default, vol_default, playdur_default,
 		lag_default, tempo_default |
 
-		var cOCTAVE_DEFAULT = octave_default;
-		var cDURATION_DEFAULT = dur_default;
-		var cMODIFIER_DEFAULT = modifier_default;
-		var cMULTIPLIER_DEFAULT = mult_default;
-		var cDIVIDER_DEFAULT = div_default;
-		var cVOLUME_DEFAULT = vol_default;
-		var cPLAYDUR_DEFAULT = playdur_default;
-		var cLAG_DEFAULT = lag_default;
-		var cTEMPO_DEFAULT = tempo_default;
-		var cDOTS_DEFAULT = 0;
 		var noteletters;
 		var accumulatechord = false;
 		var accumulated = [];
 
-		gOCTAVE_DEFAULT = cOCTAVE_DEFAULT;
-		gDURATION_DEFAULT = cDURATION_DEFAULT;
-		gMODIFIER_DEFAULT = cMODIFIER_DEFAULT;
-		gMULTIPLIER_DEFAULT = cMULTIPLIER_DEFAULT;
-		gDIVIDER_DEFAULT = cDIVIDER_DEFAULT;
-		gVOLUME_DEFAULT = cVOLUME_DEFAULT;
-		gPLAYDUR_DEFAULT = cPLAYDUR_DEFAULT;
-		gLAG_DEFAULT = cLAG_DEFAULT;
-		gTEMPO_DEFAULT = cTEMPO_DEFAULT;
-		gDOTS_DEFAULT = cDOTS_DEFAULT;
+		~cOCTAVE_DEFAULT = octave_default;
+		~cDURATION_DEFAULT = dur_default;
+		~cMODIFIER_DEFAULT = modifier_default;
+		~cMULTIPLIER_DEFAULT = mult_default;
+		~cDIVIDER_DEFAULT = div_default;
+		~cVOLUME_DEFAULT = vol_default;
+		~cPLAYDUR_DEFAULT = playdur_default;
+		~cLAG_DEFAULT = lag_default;
+		~cTEMPO_DEFAULT = tempo_default;
+		~cDOTS_DEFAULT = 0;
+
+		gOCTAVE_DEFAULT = ~cOCTAVE_DEFAULT;
+		gDURATION_DEFAULT = ~cDURATION_DEFAULT;
+		gMODIFIER_DEFAULT = ~cMODIFIER_DEFAULT;
+		gMULTIPLIER_DEFAULT = ~cMULTIPLIER_DEFAULT;
+		gDIVIDER_DEFAULT = ~cDIVIDER_DEFAULT;
+		gVOLUME_DEFAULT = ~cVOLUME_DEFAULT;
+		gPLAYDUR_DEFAULT = ~cPLAYDUR_DEFAULT;
+		gLAG_DEFAULT = ~cLAG_DEFAULT;
+		gTEMPO_DEFAULT = ~cTEMPO_DEFAULT;
+		gDOTS_DEFAULT = ~cDOTS_DEFAULT;
 
 		if (notation[notation.size-1] != $ ) {
 			notation = notation++" ";
@@ -80,28 +99,24 @@ Panola {
 				noteletters = noteletters.add(x[1]);
 			};
 		});
-		//noteletters.postln;
 		noteletters.do({
 			|note|
-			var modifier = cMODIFIER_DEFAULT;
-			var octave = cOCTAVE_DEFAULT;
-			var duration = cDURATION_DEFAULT;
-			var multiplier = cMULTIPLIER_DEFAULT;
-			var divider = cDIVIDER_DEFAULT;
-			var volume = cVOLUME_DEFAULT;
-			var playdur = cPLAYDUR_DEFAULT;
-			var lag = cLAG_DEFAULT;
+			var modifier = ~cMODIFIER_DEFAULT;
+			var octave = ~cOCTAVE_DEFAULT;
+			var duration = ~cDURATION_DEFAULT;
+			var volume = ~cVOLUME_DEFAULT;
+			var playdur = ~cPLAYDUR_DEFAULT;
+			var lag = ~cLAG_DEFAULT;
 			var fullnote = "";
 			var letter = note[0];
-			var num_of_dots = cDOTS_DEFAULT;
 			var afterletter = note.copyRange(1, note.size-1);
 			var modifierregexp = "(#|x|--|-)";
 			var octaveregexp = "(\\d+)";
 			var durationregexp = "(\\d+)";
 			var durationextensionregexp = "(\\.)+";
-			var multiplierregexp = "(\\d+)";
-			var dividerregexp = "(\\d+)";
-			var propertyregex = "(vol|pdur|lag|tempo|[^{\\[\\\\]+)";
+			var multiplierregexp = "\\*(\\d+)";
+			var dividerregexp = "/(\\d+)";
+			var propertyregex = "([^{\\[\\\\]+)";
 			var propertytyperegex = "({|\\[)";
 			var propertyvalueregex = "[0-9]*\\.?[0-9]+";
 			var aftermodifier = "";
@@ -116,6 +131,9 @@ Panola {
 			var afterextractedproperty="";
 			var propertyvalue = "";
 			var props = [];
+            ~multiplier = ~cMULTIPLIER_DEFAULT;
+			~divider = ~cDIVIDER_DEFAULT;
+            ~num_of_dots = ~cDOTS_DEFAULT;
 
 			note = note.stripWhiteSpace;
 
@@ -127,60 +145,48 @@ Panola {
 					accumulatechord = false;
 					parsed_notation = parsed_notation.add(accumulated);
 				} {
-					aftermodifier = afterletter;
-					if (afterletter.findRegexpAt(modifierregexp,0).notNil) {
-						modifier = afterletter.findRegexpAt(modifierregexp,0)[0];
-						aftermodifier = afterletter.copyRange(afterletter.findRegexpAt(modifierregexp,0)[1], afterletter.size-1);
-					};
-					afteroctave = aftermodifier;
-					if (aftermodifier.findRegexpAt(octaveregexp, 0).notNil) {
-						octave = aftermodifier.findRegexpAt(octaveregexp,0)[0];
-						cOCTAVE_DEFAULT = octave; // update octave default
-						afteroctave = aftermodifier.copyRange(aftermodifier.findRegexpAt(octaveregexp,0)[1], aftermodifier.size-1);
-					};
+					var parseresult;
+					parseresult = this.pr_read_token(afterletter, modifierregexp, ~cMODIFIER_DEFAULT);
+					modifier = parseresult[0];
+					aftermodifier = parseresult[1];
+
+					parseresult = this.pr_read_token(aftermodifier, octaveregexp, ~cOCTAVE_DEFAULT, { |token| ~cOCTAVE_DEFAULT = token; });
+					octave = parseresult[0];
+					afteroctave = parseresult[1];
 					if (afteroctave[0].notNil && afteroctave[0] == $_) {
 						afteroctave = afteroctave.copyRange(1, afteroctave.size-1);
 					};
-					afterduration = afteroctave;
-					if (afteroctave.findRegexpAt(durationregexp, 0).notNil) {
-						duration = afteroctave.findRegexpAt(durationregexp,0)[0];
-						cDURATION_DEFAULT = duration; // update duration default, reset multiplier, divider, num_of_dots
-						cMULTIPLIER_DEFAULT = "1";
-						divider = "1";
-						cDIVIDER_DEFAULT = "1";
-						multiplier = "1";
-						cDOTS_DEFAULT = 0;
-						num_of_dots = 0;
-						afterduration = afteroctave.copyRange(afteroctave.findRegexpAt(durationregexp,0)[1], afteroctave.size-1);
-					};
-					afterdurationextension = afterduration;
-					if (afterduration.findRegexpAt(durationextensionregexp, 0).notNil) {
-						num_of_dots = afterduration.findRegexpAt(durationextensionregexp,0)[1];
-						cDOTS_DEFAULT = num_of_dots; // update dots default
-						afterdurationextension = afterduration.copyRange(afterduration.findRegexpAt(durationextensionregexp,0)[1], afterduration.size-1);
-					};
-					if (afterdurationextension[0].notNil && afterdurationextension[0] == $*) {
-						afterdurationextension = afterdurationextension.copyRange(1, afterdurationextension.size-1);
-						aftermultiplier = afterdurationextension;
-						if (afterdurationextension.findRegexpAt(multiplierregexp, 0).notNil) {
-							multiplier = afterdurationextension.findRegexpAt(multiplierregexp, 0)[0];
-							cMULTIPLIER_DEFAULT = multiplier; // update multiplier default
-							aftermultiplier = afterdurationextension.copyRange(afterdurationextension.findRegexpAt(multiplierregexp, 0)[1], afterdurationextension.size-1);
-						};
-					} {
-						aftermultiplier = afterdurationextension;
-					};
-					if (aftermultiplier[0].notNil && aftermultiplier[0] == $/) {
-						aftermultiplier = aftermultiplier.copyRange(1, aftermultiplier.size-1);
-						afterdivider = aftermultiplier;
-						if (aftermultiplier.findRegexpAt(dividerregexp, 0).notNil) {
-							divider = aftermultiplier.findRegexpAt(dividerregexp, 0)[0];
-							cDIVIDER_DEFAULT = divider;
-							afterdivider = aftermultiplier.copyRange(aftermultiplier.findRegexpAt(dividerregexp, 0)[1], aftermultiplier.size-1);
-						};
-					} {
-						afterdivider = aftermultiplier;
-					};
+
+					parseresult = this.pr_read_token(afteroctave, durationregexp, ~cDURATION_DEFAULT, { | token |
+						~cDURATION_DEFAULT = token; // update duration default, reset multiplier, divider, num_of_dots
+						~cMULTIPLIER_DEFAULT = "1";
+						~divider = "1";
+						~cDIVIDER_DEFAULT = "1";
+						~multiplier = "1";
+						~cDOTS_DEFAULT = 0;
+						~num_of_dots = 0;
+					});
+					duration = parseresult[0];
+					afterduration = parseresult[1];
+
+					parseresult = this.pr_read_token(afterduration, durationextensionregexp, ~cDOTS_DEFAULT, { | token |
+						~num_of_dots = token.size;
+						~cDOTS_DEFAULT = ~num_of_dots; // update dots default
+					});
+					afterdurationextension = parseresult[1];
+
+					parseresult = this.pr_read_token(afterdurationextension, multiplierregexp, ~cMULTIPLIER_DEFAULT, { | token |
+						~multiplier = token.copyRange(1, token.size-1);
+						~cMULTIPLIER_DEFAULT = ~multiplier;
+					});
+					aftermultiplier = parseresult[1];
+
+					parseresult = this.pr_read_token(aftermultiplier, dividerregexp, ~cDIVIDER_DEFAULT, { | token |
+						~divider = token.copyRange(1, token.size-1);
+						~cDIVIDER_DEFAULT = ~divider;
+					});
+					afterdivider = parseresult[1];
+
 					afterproperty = afterdivider;
 					while({afterproperty[0] == $\\}, {
 						var type = "fixed";
@@ -209,14 +215,14 @@ Panola {
 
 					fullnote = if (letter == $r) {letter} {letter++modifier++octave};
 					// ("note: "++fullnote).postln;
-					// ("dur: " ++ duration ++ "*" ++ multiplier ++ "/" ++ divider).postln;
+					// ("dur: " ++ duration ++ "*" ++ ~multiplier ++ "/" ++ ~divider).postln;
 					//("props: "++props).postln;
 					// ("").postln;
 
 					if (accumulatechord) {
-						accumulated = accumulated.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
+						accumulated = accumulated.add([fullnote, duration, ~num_of_dots, ~multiplier, ~divider, props]);
 					} {
-						parsed_notation = parsed_notation.add([fullnote, duration, num_of_dots, multiplier, divider, props]);
+						parsed_notation = parsed_notation.add([fullnote, duration, ~num_of_dots, ~multiplier, ~divider, props]);
 					};
 				};
 			};
