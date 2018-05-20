@@ -210,7 +210,7 @@ Panola {
 							afterextractedproperty = parseresult[1];
 
 							val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
-							props = props.add([prop, ~type, val[0]]).postln;
+							props = props.add([prop, ~type, val[0]]);
 							this.customProperties.put(prop, prop.asSymbol);
 							afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
 						});
@@ -286,7 +286,6 @@ Panola {
 				el[0];
 			};
 		});
-		//parsed_notation.postln;
 		^Pseq(notelist, 1);
 	}
 
@@ -348,7 +347,7 @@ Panola {
 			} {
 				el[5];
 			};
-		});//.postln;
+		});
 		// keep only volume properties + add distance between current and previous volume property spec
 		var volprops = [];
 		var distance = 0;
