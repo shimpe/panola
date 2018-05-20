@@ -45,14 +45,15 @@ Panola {
 		token = token_default;
 		aftertoken = string_so_far;
 		if (string_so_far.findRegexpAt(token_regexp,0).notNil) {
-			token = string_so_far.findRegexpAt(token_regexp,0)[0];
+			var analysis = string_so_far.findRegexpAt(token_regexp,0);
+			token = analysis[0];
+			aftertoken = string_so_far.copyRange(analysis[1], string_so_far.size-1);
 			if (token.notNil && semantic_token_action.notNil) {
-				semantic_token_action.(token);
+				semantic_token_action.(token, aftertoken);
 			};
 			if (token.isNil && token_not_found_action.notNil) {
-				token_not_found_action.();
+				token_not_found_action.(aftertoken);
 			};
-			aftertoken = string_so_far.copyRange(string_so_far.findRegexpAt(token_regexp,0)[1], string_so_far.size-token.size);
 		};
 		^[token, aftertoken];
 	}
@@ -150,14 +151,14 @@ Panola {
 					modifier = parseresult[0];
 					aftermodifier = parseresult[1];
 
-					parseresult = this.pr_read_token(aftermodifier, octaveregexp, ~cOCTAVE_DEFAULT, { |token| ~cOCTAVE_DEFAULT = token; });
+					parseresult = this.pr_read_token(aftermodifier, octaveregexp, ~cOCTAVE_DEFAULT, { |token, rest| ~cOCTAVE_DEFAULT = token; });
 					octave = parseresult[0];
 					afteroctave = parseresult[1];
 					if (afteroctave[0].notNil && afteroctave[0] == $_) {
 						afteroctave = afteroctave.copyRange(1, afteroctave.size-1);
 					};
 
-					parseresult = this.pr_read_token(afteroctave, durationregexp, ~cDURATION_DEFAULT, { | token |
+					parseresult = this.pr_read_token(afteroctave, durationregexp, ~cDURATION_DEFAULT, { | token, rest |
 						~cDURATION_DEFAULT = token; // update duration default, reset multiplier, divider, num_of_dots
 						~cMULTIPLIER_DEFAULT = "1";
 						~divider = "1";
@@ -169,55 +170,54 @@ Panola {
 					duration = parseresult[0];
 					afterduration = parseresult[1];
 
-					parseresult = this.pr_read_token(afterduration, durationextensionregexp, ~cDOTS_DEFAULT, { | token |
+					parseresult = this.pr_read_token(afterduration, durationextensionregexp, ~cDOTS_DEFAULT, { | token, rest |
 						~num_of_dots = token.size;
 						~cDOTS_DEFAULT = ~num_of_dots; // update dots default
 					});
 					afterdurationextension = parseresult[1];
 
-					parseresult = this.pr_read_token(afterdurationextension, multiplierregexp, ~cMULTIPLIER_DEFAULT, { | token |
+					parseresult = this.pr_read_token(afterdurationextension, multiplierregexp, ~cMULTIPLIER_DEFAULT, { | token, rest |
 						~multiplier = token.copyRange(1, token.size-1);
 						~cMULTIPLIER_DEFAULT = ~multiplier;
 					});
 					aftermultiplier = parseresult[1];
 
-					parseresult = this.pr_read_token(aftermultiplier, dividerregexp, ~cDIVIDER_DEFAULT, { | token |
+					parseresult = this.pr_read_token(aftermultiplier, dividerregexp, ~cDIVIDER_DEFAULT, { | token, rest |
 						~divider = token.copyRange(1, token.size-1);
 						~cDIVIDER_DEFAULT = ~divider;
 					});
 					afterdivider = parseresult[1];
 
 					afterproperty = afterdivider;
+
 					while({afterproperty[0] == $\\}, {
-						var type = "fixed";
 						var val = "0.5";
 						var prop = "vol";
+
+						~type = "fixed";
+
 						afterproperty = afterproperty.copyRange(1, afterproperty.size-1);
-						if (afterproperty.findRegexpAt(propertyregex, 0).notNil) {
-							extractedproperty = afterproperty.findRegexpAt(propertyregex, 0)[0];
-							afterextractedproperty = afterproperty.copyRange(afterproperty.findRegexpAt(propertyregex, 0)[1], afterproperty.size-1);
-							propertytype = afterextractedproperty.findRegexpAt(propertytyperegex, 0);
-							if (propertytype.notNil) {
-								prop = extractedproperty;
-								if (propertytype[0].compare("{") == 0) {
-									type = "anim";
+						parseresult = this.pr_read_token(afterproperty, propertyregex, "", { | token, rest |
+							var parseresult;
+							prop = token;
+							parseresult = this.pr_read_token(rest, propertytyperegex, "[", { | token ,rest |
+								if (token[0].asString.compare("{") == 0) {
+									~type = "anim";
 								} {
-									type = "fixed";
+									~type = "fixed";
 								};
-								afterextractedproperty = afterextractedproperty.copyRange(propertytype[1], afterextractedproperty.size-1);
-								val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
-								props = props.add([prop, type, val[0]]);
-								this.customProperties.put(prop, prop.asSymbol);
-								afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
-							};
-						};
+							});
+							afterextractedproperty = parseresult[1];
+
+							val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
+							props = props.add([prop, ~type, val[0]]).postln;
+							this.customProperties.put(prop, prop.asSymbol);
+							afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
+						});
+
 					});
 
 					fullnote = if (letter == $r) {letter} {letter++modifier++octave};
-					// ("note: "++fullnote).postln;
-					// ("dur: " ++ duration ++ "*" ++ ~multiplier ++ "/" ++ ~divider).postln;
-					//("props: "++props).postln;
-					// ("").postln;
 
 					if (accumulatechord) {
 						accumulated = accumulated.add([fullnote, duration, ~num_of_dots, ~multiplier, ~divider, props]);
