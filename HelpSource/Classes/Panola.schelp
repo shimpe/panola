@@ -369,9 +369,20 @@ code::
 (
 s.waitForBoot({
 	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
-		"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
-		"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
-		"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
+"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
+"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
+"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
+	~player = p.asPbind.play;
+});
+)
+
+or the same, but more verbose:
+
+s.waitForBoot({
+	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
+"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
+"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
+"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
 
 	q = Pbind(
 		\instrument, \default,
@@ -393,20 +404,20 @@ code::
 (
 s.waitForBoot({
 	var v1 = Panola.new("r_16\\tempo[80]\\pdur[1.0]\\vol{0.7} e4 a c5 b4 e b d5 c_8\\pdur[0.2]\\vol{0.9} e g#4 e5 "
-		"a4_16\\vol{0.7} e4_16\\pdur[1.0] a c5 b4 e b d5 c_8\\vol{0.9}\\pdur[0.2] a4 r_4\\vol{0.7} "
-		"r_16 e5\\vol{0.3}\\pdur[1.0] c e a4 c5 e4 g f_8\\vol{0.9}\\pdur[0.2] a\\vol{0.7} d5 f_8.\\vol{0.3} "
-		"d_16\\pdur[1.0] b4 d5 g4 b d f e_8\\vol{0.9}\\pdur[0.2] g\\vol{0.7} c5 e_8.\\vol{0.3} "
-		"c5_16\\pdur[1.0] a4 c5 f4_8\\vol{0.9}\\pdur[0.2] d5_8.\\vol{0.3}\\pdur[1.0] b4_16 g b "
-		"e_8\\vol{0.9}\\pdur[0.2] c5_8.\\vol{0.3}\\pdur[1.0] "
-		"a4_16 f a d_8\\vol{0.9}\\pdur[0.2] b_8 c5_8 r_8 r_4 ");
+"a4_16\\vol{0.7} e4_16\\pdur[1.0] a c5 b4 e b d5 c_8\\vol{0.9}\\pdur[0.2] a4 r_4\\vol{0.7} "
+"r_16 e5\\vol{0.3}\\pdur[1.0] c e a4 c5 e4 g f_8\\vol{0.9}\\pdur[0.2] a\\vol{0.7} d5 f_8.\\vol{0.3} "
+"d_16\\pdur[1.0] b4 d5 g4 b d f e_8\\vol{0.9}\\pdur[0.2] g\\vol{0.7} c5 e_8.\\vol{0.3} "
+"c5_16\\pdur[1.0] a4 c5 f4_8\\vol{0.9}\\pdur[0.2] d5_8.\\vol{0.3}\\pdur[1.0] b4_16 g b "
+"e_8\\vol{0.9}\\pdur[0.2] c5_8.\\vol{0.3}\\pdur[1.0] "
+"a4_16 f a d_8\\vol{0.9}\\pdur[0.2] b_8 c5_8 r_8 r_4 ");
 	var v2 = Panola.new("a2_8\\tempo[80]\\vol{0.6}\\pdur[0.2] a3_4\\pdur[1.0]\\vol{0.7} g#_8\\vol{0.6} a_16\\pdur[0.2]\\vol{0.7} e3\\pdur[1.0] a c4 b3 e b d4 "
-		"c_8\\pdur[0.2]\\vol{0.9} a3 g# e a_16\\vol{0.7} e\\pdur[1.0] a c4 b3 e b d4 "
-		"c_8\\pdur[0.2]\\vol{0.9} a3 c4 a3 "
-		"d4_16\\vol{0.7} a3\\pdur[1.0] f a d f a2 c3 "
-		"b2_8\\vol{0.3}\\pdur[0.2] d3 g b_8.\\vol{0.7}\\pdur[1.0] g3_16 e g c e g2 b "
-		"a_8\\vol{0.3}\\pdur[0.2] c3\\vol{0.6} d_16\\pdur[1.0] f b2 d3 g2_8\\vol[0.7]\\pdur[0.2] b c3_16\\vol{0.7}\\pdur[1.0] e a2 c3 "
-		"f2_8\\vol{0.3}\\pdur[0.2] d g_16\\vol{0.4} g3\\pdur[1.0] f g c\\vol{0.6}\\pdur[0.2] g\\pdur[1.0] "
-		"c4 e d g3 d4 f e_8\\vol{0.7}\\pdur[0.2] c ");
+"c_8\\pdur[0.2]\\vol{0.9} a3 g# e a_16\\vol{0.7} e\\pdur[1.0] a c4 b3 e b d4 "
+"c_8\\pdur[0.2]\\vol{0.9} a3 c4 a3 "
+"d4_16\\vol{0.7} a3\\pdur[1.0] f a d f a2 c3 "
+"b2_8\\vol{0.3}\\pdur[0.2] d3 g b_8.\\vol{0.7}\\pdur[1.0] g3_16 e g c e g2 b "
+"a_8\\vol{0.3}\\pdur[0.2] c3\\vol{0.6} d_16\\pdur[1.0] f b2 d3 g2_8\\vol[0.7]\\pdur[0.2] b c3_16\\vol{0.7}\\pdur[1.0] e a2 c3 "
+"f2_8\\vol{0.3}\\pdur[0.2] d g_16\\vol{0.4} g3\\pdur[1.0] f g c\\vol{0.6}\\pdur[0.2] g\\pdur[1.0] "
+"c4 e d g3 d4 f e_8\\vol{0.7}\\pdur[0.2] c ");
 
 	var all = Ppar([v1.asPbind, v2.asPbind], 1);
 	~player = all.play;
@@ -433,9 +444,9 @@ s.waitForBoot({
 	s.sync;
 
 	line = Panola.new(
-		"a2_16\\wave[0]\\vol{0.05}\\tempo{120}\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.05}"
-		"a2_16\\wave[0] a a a1 a2 a a3\\sus{0.2} a2 a\\ctf{3000} a a1 a2 a3 a2 b- g\\res{0.2}"
-		"a2_16\\wave[0] a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{10}"
+"a2_16\\wave[0]\\vol{0.05}\\tempo{120}\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.05}"
+"a2_16\\wave[0] a a a1 a2 a a3\\sus{0.2} a2 a\\ctf{3000} a a1 a2 a3 a2 b- g\\res{0.2}"
+"a2_16\\wave[0] a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{10}"
 	);
 	~player = line.asPbind(\sc303).play;
 });
