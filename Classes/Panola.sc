@@ -28,7 +28,7 @@ Panola {
 		mult_default, div_default, vol_default, playdur_default,
 		lag_default, tempo_default |
 		this.customProperties = Dictionary.newFrom([
-//          property name, pBind key
+			// property name, pBind key
 			"vol", \amp,
 			"tempo", \tempo,
 			"lag", \lag,
@@ -132,9 +132,9 @@ Panola {
 			var afterextractedproperty="";
 			var propertyvalue = "";
 			var props = [];
-            ~multiplier = ~cMULTIPLIER_DEFAULT;
+			~multiplier = ~cMULTIPLIER_DEFAULT;
 			~divider = ~cDIVIDER_DEFAULT;
-            ~num_of_dots = ~cDOTS_DEFAULT;
+			~num_of_dots = ~cDOTS_DEFAULT;
 
 			note = note.stripWhiteSpace;
 
