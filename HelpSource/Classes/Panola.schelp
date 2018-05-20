@@ -378,6 +378,7 @@ s.waitForBoot({
 
 or the same, but more verbose:
 
+(
 s.waitForBoot({
 	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
 "e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
