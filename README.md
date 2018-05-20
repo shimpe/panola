@@ -2,7 +2,7 @@
 supercollider PAttern NOtation LAnguage (superset of subset of MISPEL ported to supercollider)
 
 This quark provides a fairly easy way to write tonal music in supercollider using a kind of music notation.
-Properties like volume and tempo automatially can be animated over time to painlessly specify things like 
+Properties like volume and tempo automatically can be animated over time to painlessly specify things like 
 crescendo/decrescendo or accelerando/ritardando. These same animated properties can also be used to drive 
 synth arguments (e.g. animate resonance over time if you play the music to a synth that takes resonance as parameter).
 
