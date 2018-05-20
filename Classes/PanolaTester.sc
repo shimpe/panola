@@ -267,6 +267,15 @@ PropertyTester : UnitTest {
 		this.assertEquals(result2, [6, 4, 5, 6, 7, 8, nil]);
 	}
 
+	test_tempo {
+		var p = Panola.new("c_4\\tempo[60] d e\\tempo[80] f g\\tempo{120} f e d\\tempo{150} a");
+		var q = p.tempoPattern.asStream;
+		var result = 10.collect({
+			q.next;
+		});
+		this.assertEquals(result, [60/(4*60), 60/(4*60), 80/(4*60), 80/(4*60), 120/(4*60), 130/(4*60), 140/(4*60), 150/(4*60), 150/(4*60), nil]);
+	}
+
 }
 
 PanolaTester {

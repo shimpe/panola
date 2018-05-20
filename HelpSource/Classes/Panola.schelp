@@ -38,7 +38,7 @@ Multiplier and divider are remembered until a new duration is specified.
 
 Notes can be grouped using angular brackets to make chords. The properties of the first note in the chord are used for the complete chord. Properties attached to the second and later notes in the chord (other than octave number and note modifier) are ignored. The following makes a chord of four notes:
 
-"<c4 e4 g c5>"
+code:: "<c4 e4 g c5>" ::
 
 After the dots one can optionally specify additional properties. Currently the following properties are supported:
 vol (volume), tempo (tempo), lag (lag), pdur (played duration, aka legato).
@@ -48,7 +48,7 @@ specified by enclosing its value in square brackets [].
 
 E.g. here's an example of a crescendo (becoming louder):
 
-"c4\\vol{0.3} d e f g a b c5\\vol{0.9}"
+code:: "c4\\vol{0.3} d e f g a b c5\\vol{0.9}" ::
 
 In the above example, the c4 starts at volume 0.3 and the phrase ends at volume 0.9.
 The volumes of the notes in between gruadually rise so as to get a crescendo.
@@ -56,21 +56,23 @@ Note: for now only linear animation is supported.
 
 If on the other hand we would have written:
 
-"c4\\vol[0.3] d e f g a b c5\\vol[0.9]"
+code:: "c4\\vol[0.3] d e f g a b c5\\vol[0.9]" ::
 
 Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
 suddenly had volume 0.9.
 
 Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind:
 
+code::
 (
 ~phrase = Panola.new("c d e f g");
 ~pattern = ~phrase.asPbind(\default); // instrument as parameter
 ~player = ~pattern.play;
 )
-
+::
 or, more flexibly, by extracting individual information patterns:
 
+code::
 (
 ~phrase = Panola.new("c d e f g");
 ~pattern = Pbind(
@@ -84,9 +86,11 @@ or, more flexibly, by extracting individual information patterns:
 ); // instrument as parameter
 ~player = ~pattern.play;
 )
+::
 
 In addition to these predefined properties, you can also use any user defined pattern, e.g.
 
+code::
 (
 ~phrase = Panola.new("c d\\myprop{0.1} e f g a\\myprop{0.6}");
 ~pattern = ~phrase.customPropertyPattern("myprop"); // extract only myprop as a pattern
@@ -121,6 +125,7 @@ In addition to these predefined properties, you can also use any user defined pa
 ~pbind = ~phrase.asPbind(\default, include_custom_properties:false);
 ~pbind.patternpairs.postln;
 )
+::
 
 CLASSMETHODS::
 
@@ -162,6 +167,23 @@ returns:: an object from which several patterns can be asked
 
 INSTANCEMETHODS::
 
+METHOD:: asPbind
+returns all info in the score as a pattern. All properties are turned into Pbind keys
+
+ARGUMENT:: instrument
+the instrument to use in the Pbind
+
+ARGUMENT:: include_custom_properties
+a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
+or if all user defined properties should be included as well
+
+ARGUMENT:: custom_property_defaults
+a Dictionary containing default values for properties. These defaults are used as long as no value for the
+property is specified in the Panola specification. If you provide a default value for a key, but you never
+reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
+
+returns:: a Pbind
+
 METHOD:: gMODIFIER_DEFAULT
 default note modifier
 
@@ -171,11 +193,6 @@ METHOD:: volumePattern
 volumePattern
 
 returns:: returns a pattern generating the required volume entries
-
-METHOD:: gPLAYDUR_DEFAULT
-default legato value
-
-returns:: returns default legato value in use
 
 METHOD:: parsed_notation
 internal data structure containing parse tree of the panola notation string
@@ -189,22 +206,27 @@ ARGUMENT:: notation
 string containing valid panola notation
 
 ARGUMENT:: octave_default
-wich octave to use by default
+wich octave to use by default (4, unless specified differently during .new)
 
 ARGUMENT:: dur_default
-which duration to use by default
+which duration to use by default (1/4, unless specified differently during .new)
+
+METHOD:: gPLAYDUR_DEFAULT
+default legato value (0.9)
+
+returns:: returns default legato value in use
 
 ARGUMENT:: modifier_default
-which note modifier to use by default
+which note modifier to use by default ("", unless specified differently during .new)
 
 ARGUMENT:: mult_default
-which duration multiplier to use by default
+which duration multiplier to use by default (1, unless specified differently during .new)
 
 ARGUMENT:: div_default
-which duration divider to use by default
+which duration divider to use by default (1, unless specified differently during .new)
 
 ARGUMENT:: vol_default
-which volume to use by default
+which volume to use by default (0.5, unless specified differently during .new)
 
 ARGUMENT:: playdur_default
 which legato value to use by default
@@ -223,17 +245,27 @@ internal helper method to create notename to midi number lookup table
 returns:: nothing
 
 METHOD:: gDIVIDER_DEFAULT
-default duration divider
+default duration divider (1)
 
 returns:: default duration divider
 
 METHOD:: gOCTAVE_DEFAULT
-default octave
+default octave (4)
 
 returns:: default octave
 
+METHOD:: gDOTS_DEFAULT
+default number of dots (0)
+
+returns:: default number of dots
+
+METHOD:: gTEMPO_DEFAULT
+default tempo (80 bpm)
+
+returns:: default tempo
+
 METHOD:: gLAG_DEFAULT
-default lag
+default lag (0)
 
 returns:: default lag
 
@@ -241,6 +273,18 @@ METHOD:: durationPattern
 pattern generating the successive durations to realize the notation
 
 returns:: pattern generating the successive durations to realize the notation
+
+METHOD::customPropertyPattern
+returns a pattern describing the values of a custom property through the score
+
+ARGUMENT:: customstring
+this is the name of the property you're extracting from the score
+
+ARGUMENT:: default
+this is the default value for the property
+
+returns:: a pattern
+
 
 METHOD:: pr_animatedPattern
 internal helper method for turning animated properties into pattern
