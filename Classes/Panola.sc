@@ -474,4 +474,15 @@ Panola {
 			);
 		};
 	}
+
+	asMidiPbind {
+		| midiOut, channel=0, include_custom_properties=true, custom_property_default=nil |
+		^Pbindf(this.asPbind(include_custom_properties:include_custom_properties,
+			custom_property_defaults:custom_property_default),
+			\instrument, {},
+			\type, \midi,
+			\midiout, midiOut,
+			\chan, channel,
+			\midicmd, \noteOn);
+	}
 }

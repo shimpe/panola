@@ -61,7 +61,9 @@ code:: "c4\\vol[0.3] d e f g a b c5\\vol[0.9]" ::
 Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
 suddenly had volume 0.9.
 
-Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind:
+Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind.
+You can ask .asPbind which returns a Pbind that is suitable for use with the supercollider server, or you can ask it
+to .asMidiPbind, which returns a Pbind that can communicate with external software/hardware synthesizers over MIDI.
 
 code::
 (
@@ -182,7 +184,28 @@ a Dictionary containing default values for properties. These defaults are used a
 property is specified in the Panola specification. If you provide a default value for a key, but you never
 reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
 
-returns:: a Pbind
+returns:: a Pbind of \type \note
+
+METHOD: asMidiPbind
+returns the info in the score as a pattern that produces midi noteOn/noteOff events. This can be used with external devices.
+
+ARGUMENT:: midiOut
+this is an instance of a MIDIOut, already connected to an external software/hardware synth
+
+ARGUMENT:: channel (default:0)
+midi channel on which to send the noteOn/noteOff events
+
+ARGUMENT:: include_custom_properties
+a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
+or if all user defined properties should be included as well. In case of midi events, these extra keys most likely
+will not have any effect.
+
+ARGUMENT:: custom_property_defaults
+a Dictionary containing default values for properties. These defaults are used as long as no value for the
+property is specified in the Panola specification. If you provide a default value for a key, but you never
+reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
+
+returns:: a Pbind of \type \midi
 
 METHOD:: gMODIFIER_DEFAULT
 default note modifier
@@ -498,12 +521,17 @@ s.waitForBoot({
 )
 ::
 
-Complete piece
+Complete piece in 4 voices being sent to a Prophet Rev 2 hardware synthesizer.
+This makes use of the ScProphetRev2 quark for talking to a Dave Smith Instruments prophet Rev2,
+available from https://github.com/shimpe/sc-prophet-rev2.
+You can of course use your own initialized MIDIOut object instead.
 
 code::
 (
-s.waitForBoot({
-	var v1 = Panola.new(
+p = ScProphetRev2.new;
+p.connect;
+fork {
+	    var v1 = Panola.new(
 "r_2\\tempo[76] "
 "a2_4\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
 "a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
@@ -531,8 +559,8 @@ s.waitForBoot({
 "a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
 "a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
 "a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-	);
-	var v2 = Panola.new(
+	    );
+	    var v2 = Panola.new(
 "r_2 "
 "r  "
 "r  "
@@ -559,8 +587,8 @@ s.waitForBoot({
 "r_4 f#3\\pdur[1.0] a3_2 "
 "r_4 f#3\\pdur[1.0] a3_2 "
 "r_4 f#3\\pdur[1.0] a3_2 "
-	);
-	var v3 = Panola.new(
+	    );
+	    var v3 = Panola.new(
 "r_2 "
 "r_2 "
 "r_2 "
@@ -589,8 +617,8 @@ s.waitForBoot({
 "r_8 d4_8 e_4. d_8 e_4 "
 "r_8 d4_8 e_4. d_8 e_4 "
 "r_8 d4_8 e_4. d_8 e_4*5 "
-);
-	var v4 = Panola.new(
+	);
+	    var v4 = Panola.new(
 "r_2*7 "
 "a4_4 a_8 f#_16 g a_8 f# e e "
 "g4_8 g g e a f# d d "
@@ -606,8 +634,10 @@ s.waitForBoot({
 "r_2*11 "
 "a4_4 a_8 f#_16 g a_8 f# e e "
 "r_2*5 "
-	);
-	Ppar([v1.asPbind,v2.asPbind,v3.asPbind,v4.asPbind],1).play;
-});
+	    );
+		1.wait;
+	    Ppar([v1.asMidiPbind(p.midi_out),v2.asMidiPbind(p.midi_out),
+		v3.asMidiPbind(p.midi_out),v4.asMidiPbind(p.midi_out)],1).play;
+}
 )
 ::
