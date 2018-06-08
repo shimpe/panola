@@ -425,7 +425,7 @@ Panola {
 	}
 
 	asPbind {
-		| instrument=\default, include_custom_properties=true, custom_property_defaults=nil|
+		| instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
 		if (custom_property_defaults.isNil) {
 			custom_property_defaults = Dictionary.newFrom([
 				"vol", gVOLUME_DEFAULT,
@@ -460,9 +460,18 @@ Panola {
 						default_val = custom_property_defaults[stringproperty];
 					};
 				};
-				if (stringproperty.compare("tempo") == 0) {
-					scale = (1/(4*60.0));
+				if (translate_std_keys) {
+					if (stringproperty.compare("tempo") == 0) {
+						scale = (1/(4*60.0));
+					};
+					if (pbindkey.asString.compare("vol") == 0) {
+						pbindkey = \amp;
+					};
+					if (pbindkey.asString.compare("pdur") == 0) {
+						pbindkey = \legato;
+					};
 				};
+
 				mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
 			});
 			mapped_props = mapped_props.flatten;
@@ -476,9 +485,9 @@ Panola {
 	}
 
 	asMidiPbind {
-		| midiOut, channel=0, include_custom_properties=true, custom_property_default=nil |
+		| midiOut, channel=0, include_custom_properties=true, custom_property_default=nil, translate_std_keys=true |
 		^Pbindf(this.asPbind(include_custom_properties:include_custom_properties,
-			custom_property_defaults:custom_property_default),
+			custom_property_defaults:custom_property_default,translate_std_keys:translate_std_keys),
 			\instrument, {},
 			\type, \midi,
 			\midiout, midiOut,

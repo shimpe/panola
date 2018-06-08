@@ -276,6 +276,64 @@ PropertyTester : UnitTest {
 		this.assertEquals(result, [60/(4*60), 60/(4*60), 80/(4*60), 80/(4*60), 120/(4*60), 130/(4*60), 140/(4*60), 150/(4*60), 150/(4*60), nil]);
 	}
 
+	test_midipbind_nocustom {
+		var p = Panola.new("c\\vol{0.10} d e\\vol{0.30}");
+		var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:false, custom_property_default:(\vol : 0.5)).asStream;
+		var result = 3.collect({
+			| el |
+			q.next(());
+		});
+		var testpairs = (\dur:0.25, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn, \lag:0.0, \tempo:0.33333333333333, \chan:0, \type:\midi);
+		testpairs.keysValuesDo({
+			| key, value|
+			if (value.class==Float) {
+				this.assertFloatEquals(result[1][key], value);
+			} {
+				this.assertEquals(result[1][key], value);
+			};
+		});
+	}
+
+	test_midipbind {
+		var p = Panola.new("c\\vol{0.10}\\snoop{0.1} d\\snip[0.1] e\\vol{0.30}\\snip[0.2]\\snoop{0.2}");
+		var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_default:Dictionary.newFrom([\vol, 0.5, \snip, 0.9])).asStream;
+		var result = 3.collect({
+			| el |
+			q.next(());
+		});
+		var testpairs = (\dur:0.25, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
+			\lag:0.0, \tempo:0.33333333333333, \chan:0, \type:\midi, \snip:0.1, \snoop:0.15);
+		testpairs.keysValuesDo({
+			| key, value|
+			if (value.class==Float) {
+				this.assertFloatEquals(result[1][key], value);
+			} {
+				this.assertEquals(result[1][key], value);
+			};
+		});
+	}
+
+	test_midipbind_nostd {
+		var p = Panola.new("c\\vol{0.10}\\snoop{0.1} d\\snip[0.1] e\\vol{0.30}\\snip[0.2]\\snoop{0.2}");
+		var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_default:Dictionary.newFrom([\vol, 0.5, \snip, 0.9]), translate_std_keys:false).asStream;
+		var result = 3.collect({
+			| el |
+			q.next(());
+		});
+		var testpairs = (\dur:0.25, \vol:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
+			\lag:0.0, \tempo:80, \chan:0, \type:\midi, \snip:0.1, \snoop:0.15);
+		testpairs.keysValuesDo({
+			| key, value|
+			("key "++key++" value "++value).postln;
+			if (value.class==Float) {
+				this.assertFloatEquals(result[1][key], value);
+			} {
+				this.assertEquals(result[1][key], value);
+			};
+		});
+	}
+
+
 }
 
 PanolaTester {
