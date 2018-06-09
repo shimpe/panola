@@ -335,6 +335,19 @@ Panola {
 		^Pseq(durlist, 1);
 	}
 
+	totalDuration {
+		var durlist = parsed_notation.collect({
+			| el |
+			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
+			var duration = dur_el[1];
+			var num_of_dots = dur_el[2];
+			var multiplier = dur_el[3];
+			var divider = dur_el[4];
+			(1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
+		});
+		^durlist.sum;
+	}
+
 	pr_animatedPattern {
 		| prop_name="vol", default_type = "fixed", default_propval = 0.5 |
 		var currval = default_propval;

@@ -136,6 +136,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/4, nil]);
+		this.assertFloatEquals(p.totalDuration, 1/4);
 	}
 
 	test_otherdefault {
@@ -145,6 +146,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/16, nil]);
+		this.assertFloatEquals(p.totalDuration, 1/16);
 	}
 
 	test_different_durations_and_remember {
@@ -154,6 +156,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/4, 1/4, 1/8, 1/8, 1/7, 1/16, 1/4, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/4, 1/4, 1/8, 1/8, 1/7, 1/16, 1/4].sum);
 	}
 
 	test_multiplier {
@@ -163,6 +166,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/4, 1/4, 1/4, 1/4, 1/8, 1/4, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/4, 1/4, 1/4, 1/4, 1/8, 1/4].sum);
 	}
 
 	test_divider {
@@ -172,6 +176,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/8, 1/4, 1/8, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/8, 1/4, 1/8].sum);
 	}
 
 	test_multiplier_and_divider {
@@ -181,6 +186,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/4, (1/8)*(2/3), (1/8)*(4/3), 1/4, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/4, (1/8)*(2/3), (1/8)*(4/3), 1/4].sum);
 	}
 
 	test_dots {
@@ -190,6 +196,7 @@ DurationTester : UnitTest {
 			q.next;
 		});
 		this.assertEquals(result, [1/4, (1/4)+(1/8), (1/8)+(1/16)+(1/32), (1/8)+(1/16)+(1/32), 1/4, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/4, (1/4)+(1/8), (1/8)+(1/16)+(1/32), (1/8)+(1/16)+(1/32), 1/4].sum);
 	}
 }
 
