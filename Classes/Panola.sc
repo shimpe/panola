@@ -39,6 +39,94 @@ Panola {
 		this.init_midilookup();
 	}
 
+
+	pr_unroll_cleanup {
+		|txt|
+		while ({txt.find(" (").notNil}, { txt = txt.replace(" (","("); });
+		while ({txt.find("( ").notNil}, { txt = txt.replace("( ","("); });
+		while ({txt.find(" *").notNil}, { txt = txt.replace(" *","*"); });
+		while ({txt.find("* ").notNil}, { txt = txt.replace("* ","*"); });
+		^txt;
+	}
+
+	pr_unroll_find_inner {
+		| txt |
+		var unrolldata = [];
+		var stack = [];
+		var depth = 0;
+		var expecting_digits = false;
+		var recorded_digits = "";
+
+		txt.do({
+			| char, idx |
+			if (char == $() {
+				stack = stack.add([idx, depth]);
+				depth = depth + 1;
+			} {
+				if (expecting_digits) {
+					if (char == $*) {
+						/* ignore */
+					}
+					/* else */
+					{
+						if ([$0, $1, $2, $3, $4, $5, $6, $7, $8, $9].includes(char)) {
+							recorded_digits = recorded_digits ++ char.asString;
+						} {
+							unrolldata[unrolldata.size-1] =
+							unrolldata[unrolldata.size-1].add(recorded_digits.postln.asInt);
+							recorded_digits = "";
+							expecting_digits = false;
+						}
+					};
+				};
+				if (char == $)) {
+					var idxdepth = stack.pop;
+					depth = depth - 1;
+					unrolldata = unrolldata.add( [idxdepth[1], idxdepth[0], idx] );
+					expecting_digits = true;
+				};
+			};
+		});
+		if (expecting_digits) {
+			unrolldata[unrolldata.size-1] = unrolldata[unrolldata.size-1].add(recorded_digits.postln.asInt);
+		};
+		unrolldata = unrolldata.sort({
+			| el1, el2 |
+			var result = false;
+			if (el1[0] > el2[0]) {
+				result = true; } {
+				if (el1[0] < el2[0]) {
+					result = false } {
+					if (el1[1] < el2[1]) {
+						result = true;
+					} {
+						result = false;
+					};
+				}
+			}
+		});
+		^unrolldata;
+	}
+
+	pr_unroll {
+		| t |
+		var u;
+		t = this.pr_unroll_cleanup(t).postln;
+		u = this.pr_unroll_find_inner(t);
+		while ({u != []}, {
+			var first = u[0].postln;
+			var temp;
+			var repeater = first[3].asInt;
+			var unrolled;
+			temp = t.copyRange(first[1]+1, first[2]-1);
+			unrolled = repeater.collect(temp).join(" ");
+			temp = t.copyRange(0, first[1]-1) ++ " " ++ unrolled ++ t.copyRange(first[2]+first[3].asString.size+2, t.size-1);
+			t = this.pr_unroll_cleanup(temp);
+			u = this.pr_unroll_find_inner(t);
+		});
+		^t;
+	}
+
 	pr_read_token {
 		| string_so_far, token_regexp, token_default="", semantic_token_action=nil, token_not_found_action=nil |
 		var token, aftertoken;
@@ -93,7 +181,17 @@ Panola {
 			notation = notation++" ";
 		};
 		noteletters = [];
+		notation = this.unroll_loops(notation);
 		notation = notation.replace("<", " < ").replace(">", " > ");
+		while ({notation.find(", ").notNil}, {
+			notation = notation.replace(", ", ",");
+		});
+		while ({notation.find(" ,").notNil}, {
+			notation = notation.replace(" ,", ",");
+		});
+
+		notation = this.pr_unroll(notation);
+
 		notation.findRegexp("[^\\ ]+(\\ )+").do({
 			|x|
 			if (x[1].stripWhiteSpace.compare("") != 0) {
@@ -119,7 +217,7 @@ Panola {
 			var dividerregexp = "/(\\d+)";
 			var propertyregex = "([^{\\[\\\\]+)";
 			var propertytyperegex = "({|\\[)";
-			var propertyvalueregex = "[0-9]*\\.?[0-9]+";
+			var propertyvalueregex = "([^}\\]]+)";
 			var aftermodifier = "";
 			var afteroctave = "";
 			var afterduration = "";
@@ -199,6 +297,7 @@ Panola {
 						afterproperty = afterproperty.copyRange(1, afterproperty.size-1);
 						parseresult = this.pr_read_token(afterproperty, propertyregex, "", { | token, rest |
 							var parseresult;
+							var val_args;
 							prop = token;
 							parseresult = this.pr_read_token(rest, propertytyperegex, "[", { | token ,rest |
 								if (token[0].asString.compare("{") == 0) {
@@ -208,9 +307,9 @@ Panola {
 								};
 							});
 							afterextractedproperty = parseresult[1];
-
 							val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
-							props = props.add([prop, ~type, val[0]]);
+							val_args = val[0].split($,);
+							props = props.add([prop, ~type, val_args[0], val_args.drop(1)]);
 							this.customProperties.put(prop, prop.asSymbol);
 							afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
 						});
@@ -228,6 +327,20 @@ Panola {
 			};
 		});
 
+	}
+
+	unroll_loops {
+		| notation |
+		while ({notation.find(") ").notNil}, {
+			notation = notation.replace(") ", ")");
+		});
+		while ({notation.find(" *").notNil}, {
+			notation = notation.replace(" *", "*");
+		});
+		while ({notation.find("* ").notNil}, {
+			notation = notation.replace("* ", "*");
+		});
+		^notation
 	}
 
 	init_midilookup {
@@ -351,6 +464,7 @@ Panola {
 	pr_animatedPattern {
 		| prop_name="vol", default_type = "fixed", default_propval = 0.5 |
 		var currval = default_propval;
+		var currargs = [];
 		var patlist = [];
 		// extract only properties
 		var proplist = parsed_notation.collect({
@@ -377,6 +491,7 @@ Panola {
 					copyprop = copyprop.add(distance);
 					volprops = volprops.add(copyprop);
 					currval = singleprop[2];
+					currargs = singleprop[3];
 					foundVol = true;
 					distance = 0;
 				};
@@ -385,22 +500,23 @@ Panola {
 				distance = distance + 1;
 			};
 		});
-		volprops = volprops.add([prop_name, "fixed", currval, distance]);
+		volprops = volprops.add([prop_name, "fixed", currval, currargs, distance]);
 		// now turn into patterns
 		clumped = volprops.slide(2, 1).clump(2);
 		clumpedsize = clumped.size;
 		if (clumped.size == 0) {
 			patlist = patlist.add(Pseq([default_propval.asFloat], proplist.size));
 		} {
-			if (clumped[0][0][3].asInteger != 1) {
-				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0][3].asInteger-1));
+			if (clumped[0][0][4].asInteger != 1) {
+				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0][4].asInteger-1));
 			};
 			clumped.do({
 				| pair, idx |
 				var type = pair[0][1];
 				var beginval = pair[0][2].asFloat;
 				var endval = pair[1][2].asFloat;
-				var length = pair[1][3].asInteger;
+				var args = pair[1][3];
+				var length = pair[1][4].asInteger;
 				var number = length;
 				if (idx == (clumped.size-1)) {
 					number = number + 1;
@@ -410,6 +526,73 @@ Panola {
 				} {
 					patlist = patlist.add(Pseq([beginval], number));
 				};
+			});
+		}
+
+		^Pseq(patlist, 1);
+	}
+
+	pr_animatedPatternArgs {
+		| prop_name="vol", default_type = "fixed", default_propval = 0.5 |
+		var currval = default_propval;
+		var currargs = [];
+		var patlist = [];
+		// extract only properties
+		var proplist = parsed_notation.collect({
+			| el |
+			if (el[0].class == Array) {
+				el[0][5]; // properties of first note are used for all the chord
+			} {
+				el[5];
+			};
+		});
+		// keep only volume properties + add distance between current and previous volume property spec
+		var volprops = [];
+		var distance = 0;
+		var clumped = [];
+		var clumpedsize = 0;
+		proplist.do({
+			|propsfornote|
+			var foundVol = false;
+			propsfornote.do({
+				|singleprop|
+				if (singleprop[0].compare(prop_name) == 0) {
+					var copyprop = singleprop.copy();
+					distance = distance + 1;
+					copyprop = copyprop.add(distance);
+					volprops = volprops.add(copyprop);
+					currval = singleprop[2];
+					currargs = singleprop[3];
+					foundVol = true;
+					distance = 0;
+				};
+			});
+			if (foundVol.not) {
+				distance = distance + 1;
+			};
+		});
+		volprops = volprops.add([prop_name, "fixed", currval, currargs, distance]);
+		// now turn into patterns
+		clumped = volprops.slide(2, 1).clump(2);
+		clumpedsize = clumped.size;
+		if (clumped.size == 0) {
+			patlist = patlist.add(Pseq([default_propval.asFloat], proplist.size));
+		} {
+			if (clumped[0][0][4].asInteger != 1) {
+				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0][4].asInteger-1));
+			};
+			clumped.do({
+				| pair, idx |
+				var type = pair[0][1];
+				var beginval = pair[0][2].asFloat;
+				var endval = pair[1][2].asFloat;
+				var args = pair[1][3];
+				var length = pair[1][4].asInteger;
+				var number = length;
+				if (idx == (clumped.size-1)) {
+					number = number + 1;
+				};
+				patlist = patlist.add(Pseq([args], number));
 			});
 		}
 
@@ -435,6 +618,12 @@ Panola {
 	customPropertyPattern {
 		| customstring, default=0 |
 		^(this.pr_animatedPattern(customstring, "fixed", default));
+	}
+
+	customPropertyPatternArgs {
+		| customstring, default=nil |
+		if (default.isNil) { default = []; };
+		^(this.pr_animatedPatternArgs(customstring, "fixed", default));
 	}
 
 	asPbind {

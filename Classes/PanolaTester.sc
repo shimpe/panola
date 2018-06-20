@@ -274,6 +274,20 @@ PropertyTester : UnitTest {
 		this.assertEquals(result2, [6, 4, 5, 6, 7, 8, nil]);
 	}
 
+	test_customprop_args {
+		var p = Panola.new("a\\nrpn{0.1, LPF_CUTOFF, B} b c\\nrpn{0.3, LPF_CUTOFF, B} ");
+		var q = p.customPropertyPattern("nrpn").asStream;
+		var result = 4.collect({
+			q.next;
+		});
+		var r = p.customPropertyPatternArgs("nrpn").asStream;
+		var result2 = 4.collect({
+			r.next;
+		});
+		this.assertEquals(result, [0.1, 0.2, 0.3, nil]);
+		this.assertEquals(result2, [["LPF_CUTOFF", "B"], ["LPF_CUTOFF", "B"], ["LPF_CUTOFF", "B"], nil]);
+	}
+
 	test_tempo {
 		var p = Panola.new("c_4\\tempo[60] d e\\tempo[80] f g\\tempo{120} f e d\\tempo{150} a");
 		var q = p.tempoPattern.asStream;
@@ -339,7 +353,48 @@ PropertyTester : UnitTest {
 			};
 		});
 	}
+}
 
+UnrollTester : UnitTest {
+	test_no_unroll {
+		var p = Panola.new("a b");
+		var q = p.notationnotePattern.asStream;
+		var result = 3.collect({
+			| el |
+			q.next(());
+		});
+		this.assertEquals(result, [ "a4", "b4", nil ] );
+	}
+
+	test_single_unroll {
+		var p = Panola.new("a (b)*2");
+		var q = p.notationnotePattern.asStream;
+		var result = 4.collect({
+			| el |
+			q.next(());
+		});
+		this.assertEquals(result, [ "a4", "b4", "b4", nil ] );
+	}
+
+	test_single_unroll2 {
+		var p = Panola.new("(a b)*2");
+		var q = p.notationnotePattern.asStream;
+		var result = 5.collect({
+			| el |
+			q.next(());
+		});
+		this.assertEquals(result, [ "a4", "b4", "a4", "b4", nil ] );
+	}
+
+	test_nested_unroll {
+		var p  = Panola.new("a b c (f (d e)*2 g)*3 ((a)*2)*4");
+		var q = p.notationnotePattern.asStream;
+		var result = 30.collect({
+			| el |
+			q.next(());
+		});
+		this.assertEquals(result, [ "a4", "b4", "c4", "f4", "d4", "e4", "d4", "e4", "g4", "f4", "d4", "e4", "d4", "e4", "g4", "f4", "d4", "e4", "d4", "e4", "g4", "a4", "a4", "a4", "a4", "a4", "a4", "a4", "a4", nil ]);
+	}
 
 }
 
@@ -353,5 +408,6 @@ PanolaTester {
 		NotationNoteTester.run;
 		DurationTester.run;
 		PropertyTester.run;
+		UnrollTester.run;
 	}
 }
