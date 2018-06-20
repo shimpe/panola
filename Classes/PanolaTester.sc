@@ -396,6 +396,16 @@ UnrollTester : UnitTest {
 		this.assertEquals(result, [ "a4", "b4", "c4", "f4", "d4", "e4", "d4", "e4", "g4", "f4", "d4", "e4", "d4", "e4", "g4", "f4", "d4", "e4", "d4", "e4", "g4", "a4", "a4", "a4", "a4", "a4", "a4", "a4", "a4", nil ]);
 	}
 
+	test_unroll_with_other_symbols {
+		var p  = Panola.new("(a\nrprn{40, LPF_CUTOFF, A} b*2/3)*2 c (<d e>)*2");
+		var q = p.notationnotePattern.asStream;
+		var result = 8.collect({
+			| el |
+			q.next(());
+		});
+		this.assertEquals(result, [  "a4", "b4", "a4", "b4", "c4", "< d4 e4 >", "< d4 e4 >", nil ]);
+	}
+
 }
 
 PanolaTester {
