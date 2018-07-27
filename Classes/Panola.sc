@@ -39,7 +39,6 @@ Panola {
 		this.init_midilookup();
 	}
 
-
 	pr_unroll_cleanup {
 		|txt|
 		while ({txt.find(" (").notNil}, { txt = txt.replace(" (","("); });
@@ -47,6 +46,16 @@ Panola {
 		while ({txt.find(" *").notNil}, { txt = txt.replace(" *","*"); });
 		while ({txt.find("* ").notNil}, { txt = txt.replace("* ","*"); });
 		^txt;
+	}
+
+	pr_unroll_checksyntax {
+		| txt |
+		var c1, c2;
+		var copytxt = txt.copy;
+		copytxt = this.pr_unroll_cleanup(copytxt);
+		c1 = (copytxt.findAll(")*").size == copytxt.findAll(")").size);
+		c2 = (copytxt.findAll("(").size == copytxt.findAll(")").size);
+		^(c1 && c2)
 	}
 
 	pr_unroll_find_inner {
@@ -111,19 +120,21 @@ Panola {
 	pr_unroll {
 		| t |
 		var u;
-		t = this.pr_unroll_cleanup(t).postln;
-		u = this.pr_unroll_find_inner(t);
-		while ({u != []}, {
-			var first = u[0].postln;
-			var temp;
-			var repeater = first[3].asInt;
-			var unrolled;
-			temp = t.copyRange(first[1]+1, first[2]-1);
-			unrolled = repeater.collect(temp).join(" ");
-			temp = t.copyRange(0, first[1]-1) ++ " " ++ unrolled ++ t.copyRange(first[2]+first[3].asString.size+2, t.size-1);
-			t = this.pr_unroll_cleanup(temp);
+		if (this.pr_unroll_checksyntax(t)) {
+			t = this.pr_unroll_cleanup(t);
 			u = this.pr_unroll_find_inner(t);
-		});
+			while ({u != []}, {
+				var first = u[0].postln;
+				var temp;
+				var repeater = first[3].asInt;
+				var unrolled;
+				temp = t.copyRange(first[1]+1, first[2]-1);
+				unrolled = repeater.collect(temp).join(" ");
+				temp = t.copyRange(0, first[1]-1) ++ " " ++ unrolled ++ t.copyRange(first[2]+first[3].asString.size+2, t.size-1);
+				t = this.pr_unroll_cleanup(temp);
+				u = this.pr_unroll_find_inner(t);
+			});
+		}
 		^t;
 	}
 
@@ -387,6 +398,11 @@ Panola {
 		note_to_midi["r"] = Rest();
 	}
 
+	noteToMidi {
+		| note |
+		^this.note_to_midi[note];
+	}
+
 	notationnotePattern {
 		var notelist = parsed_notation.collect({
 			| el |
@@ -400,6 +416,21 @@ Panola {
 			};
 		});
 		^Pseq(notelist, 1);
+	}
+
+	getNoOfEvents {
+		var notelist = parsed_notation.collect({
+			| el |
+			if (el[0].class == Array) { // chord
+				"< "++el.collect({
+					|note|
+					note[0];
+				}).join(" ")++" >";
+			} {
+				el[0];
+			};
+		});
+		^notelist.size
 	}
 
 	midinotePattern {
