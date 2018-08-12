@@ -1,7 +1,7 @@
 TITLE:: Panola
 summary:: PAttern NOtation LAnguage
 categories:: Utils
-related:: Pbind
+related:: Classes/Pbind
 
 DESCRIPTION::
 Panola implements a subset of the midi specification language mispel in supercollider.
@@ -184,28 +184,76 @@ a Dictionary containing default values for properties. These defaults are used a
 property is specified in the Panola specification. If you provide a default value for a key, but you never
 reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
 
+ARGUMENT:: translate_std_keys
+if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
+correctly scaled to be used in a TempoClock
+
 returns:: a Pbind of \type \note
 
-METHOD: asMidiPbind
+METHOD:: asMidiPbind
 returns the info in the score as a pattern that produces midi noteOn/noteOff events. This can be used with external devices.
 
 ARGUMENT:: midiOut
 this is an instance of a MIDIOut, already connected to an external software/hardware synth
 
-ARGUMENT:: channel (default:0)
-midi channel on which to send the noteOn/noteOff events
+ARGUMENT:: channel
+midi channel (default:0) on which to send the noteOn/noteOff events
 
 ARGUMENT:: include_custom_properties
 a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
 or if all user defined properties should be included as well. In case of midi events, these extra keys most likely
 will not have any effect.
 
-ARGUMENT:: custom_property_defaults
+ARGUMENT:: custom_property_default
 a Dictionary containing default values for properties. These defaults are used as long as no value for the
 property is specified in the Panola specification. If you provide a default value for a key, but you never
 reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
 
+ARGUMENT:: translate_std_keys
+if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
+correctly scaled to be used in a TempoClock
+
 returns:: a Pbind of \type \midi
+
+METHOD:: asPmono
+returns the info in the score as a Pmono
+
+ARGUMENT:: instrument
+the instrument to use in the Pmono
+
+ARGUMENT:: include_custom_properties
+a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
+or if all user defined properties should be included as well
+
+ARGUMENT:: custom_property_defaults
+a Dictionary containing default values for properties. These defaults are used as long as no value for the
+property is specified in the Panola specification. If you provide a default value for a key, but you never
+reference the key in the Panola string, it will not be part of the Pmono that results from calling asPmono.
+
+ARGUMENT:: translate_std_keys
+if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
+correctly scaled to be used in a TempoClock
+returns:: a Pmono of \type \note
+
+METHOD:: asPmonoArtic
+returns the info in the score as a PmonoArtic
+
+ARGUMENT:: instrument
+the instrument to use in the PmonoArtic
+
+ARGUMENT:: include_custom_properties
+a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
+or if all user defined properties should be included as well
+
+ARGUMENT:: custom_property_defaults
+a Dictionary containing default values for properties. These defaults are used as long as no value for the
+property is specified in the Panola specification. If you provide a default value for a key, but you never
+reference the key in the Panola string, it will not be part of the PmonoArtic that results from calling asPmonoArtic.
+
+ARGUMENT:: translate_std_keys
+if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
+correctly scaled to be used in a TempoClock
+returns:: a PmonoArtic of \type \note
 
 METHOD:: gMODIFIER_DEFAULT
 default note modifier
@@ -234,33 +282,33 @@ wich octave to use by default (4, unless specified differently during .new)
 ARGUMENT:: dur_default
 which duration to use by default (1/4, unless specified differently during .new)
 
+ARGUMENT:: modifier_default
+which modifier to use by default (none)
+
+ARGUMENT:: mult_default
+which rhythm multiplier to use by default (1)
+
+ARGUMENT:: div_default
+which rhythm divider to use by default (1)
+
+ARGUMENT:: vol_default
+which volume to use by default (0.5)
+
+ARGUMENT:: playdur_default
+which legato setting to use by default (0.9)
+
+ARGUMENT:: lag_default
+which lag to use by default (0)
+
+ARGUMENT:: tempo_default
+which tempo to use by default (80 bpm)
+
+returns:: nothing of interest
+
 METHOD:: gPLAYDUR_DEFAULT
 default legato value (0.9)
 
 returns:: returns default legato value in use
-
-ARGUMENT:: modifier_default
-which note modifier to use by default ("", unless specified differently during .new)
-
-ARGUMENT:: mult_default
-which duration multiplier to use by default (1, unless specified differently during .new)
-
-ARGUMENT:: div_default
-which duration divider to use by default (1, unless specified differently during .new)
-
-ARGUMENT:: vol_default
-which volume to use by default (0.5, unless specified differently during .new)
-
-ARGUMENT:: playdur_default
-which legato value to use by default
-
-ARGUMENT:: lag_default
-which lag to use by default
-
-ARGUMENT:: tempo_default
-which tempo to use by default
-
-returns:: nothing
 
 METHOD:: init_midilookup
 internal helper method to create notename to midi number lookup table
@@ -402,6 +450,9 @@ default legato
 
 ARGUMENT:: lag_default
 default lag
+
+ARGUMENT:: tempo_default
+default tempo
 
 returns:: internally initialized Panola instance
 

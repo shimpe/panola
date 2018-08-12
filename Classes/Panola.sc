@@ -727,4 +727,18 @@ Panola {
 			\chan, channel,
 			\midicmd, \noteOn);
 	}
+
+	asPmono {
+		| instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
+		var result = Pmono(instrument);
+		result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys).patternpairs);
+		^result;
+	}
+
+	asPmonoArtic {
+		| instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
+		var result = PmonoArtic(instrument);
+		result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys).patternpairs);
+		^result;
+	}
 }

@@ -1,7 +1,7 @@
 (
   name: "Panola",
   summary: "Quark to simplify music composition with patterns",
-  version: "0.0.7",
+  version: "0.0.8",
   schelp: "Panola.schelp",
   license: "GPL",
   copyright: "Stefaan Himpe, 2018"
