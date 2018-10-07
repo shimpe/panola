@@ -15,7 +15,7 @@ Mispel elements that are not supported in this supercollider version include:
 
 A Panola notation string specifies a phrase of notes.
 Notenames can be a, b, c, d, e, f, g. Optional note modifiers can be
-# for a sharp, x for a double sharp, - for a moll and -- for a double moll.
+# for a sharp, x for a double sharp, - for a flat and -- for a double flat.
 Notenames also include an optional octave number. The following are all examples of valid notes:
 
 a4, b-3, d, gx2, f#1, d--1
