@@ -61,6 +61,10 @@ code:: "c4\\vol[0.3] d e f g a b c5\\vol[0.9]" ::
 Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
 suddenly had volume 0.9.
 
+Note, as of v0.0.9, Panola also supports using the "@" sign instead of a backslash for indicating properties. So you could also write
+
+code:: "c4@vol[0.3] d e f g a b c5@vol[0.9]" ::
+
 Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind.
 You can ask .asPbind which returns a Pbind that is suitable for use with the supercollider server, or you can ask it
 to .asMidiPbind, which returns a Pbind that can communicate with external software/hardware synthesizers over MIDI.
