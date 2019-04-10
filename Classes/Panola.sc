@@ -495,6 +495,10 @@ Panola {
         ^durlist.sum;
     }
 
+    numberOfNotesOrChords {
+        ^parsed_notation.size;
+    }
+
     pr_animatedPattern {
         | prop_name="vol", default_type = "fixed", default_propval = 0.5 |
         var currval = default_propval;

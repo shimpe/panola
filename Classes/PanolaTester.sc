@@ -408,6 +408,18 @@ UnrollTester : UnitTest {
 
 }
 
+CounterTester : UnitTest {
+    test_noOfNotesOrChords_simple {
+        var p  = Panola.new("a b c");
+        this.assertEquals(p.numberOfNotesOrChords, 3);
+    }
+
+    test_noOfNotesOrChords_with_repeats {
+        var p  = Panola.new("a b c (f (d e)*2 g)*3 ((a)*2)*4");
+        this.assertEquals(p.numberOfNotesOrChords, 29);
+    }
+}
+
 PanolaTester {
     *new {
         ^super.new.init();
@@ -419,5 +431,6 @@ PanolaTester {
         DurationTester.run;
         PropertyTester.run;
         UnrollTester.run;
+        CounterTester.run;
     }
 }
