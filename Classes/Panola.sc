@@ -13,20 +13,22 @@ Panola {
     var <gDOTS_DEFAULT;
     var <gTEMPO_DEFAULT;
     var <>customProperties;
+	var <>repeats;
 
     *new {
-        |notation, octave_default="4", dur_default="4", modifier_default="",
+        |notation, repeats = 1, octave_default="4", dur_default="4", modifier_default="",
         mult_default="1", div_default="1", vol_default="0.5",
         playdur_default="0.9", lag_default="0", tempo_default="80"|
 
-        ^super.new.init(notation, octave_default, dur_default, modifier_default, mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
+        ^super.new.init(notation, repeats, octave_default, dur_default, modifier_default, mult_default, div_default, vol_default, playdur_default, lag_default, tempo_default);
 
     }
 
     init {
-        | notation, octave_default, dur_default, modifier_default,
+        | notation, repeats, octave_default, dur_default, modifier_default,
         mult_default, div_default, vol_default, playdur_default,
         lag_default, tempo_default |
+		this.repeats = repeats;
         this.customProperties = Dictionary.newFrom([
             // property name, pBind key
             "vol", \amp,
@@ -418,7 +420,7 @@ Panola {
                 el[0];
             };
         });
-        ^Pseq(notelist, 1);
+        ^Pseq(notelist, repeats);
     }
 
     getNoOfEvents {
@@ -448,7 +450,7 @@ Panola {
                 note_to_midi[el[0].asString];
             }
         });
-        ^Pseq(notelist, 1);
+        ^Pseq(notelist, repeats);
     }
 
     notationdurationPattern {
@@ -466,7 +468,7 @@ Panola {
             });
             str = "(1/"++duration++dots++")*("++multiplier++"/"++divider++")";
         });
-        ^Pseq(durlist, 1);
+        ^Pseq(durlist, repeats);
     }
 
     durationPattern {
@@ -479,7 +481,7 @@ Panola {
             var divider = dur_el[4];
             (1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
         });
-        ^Pseq(durlist, 1);
+        ^Pseq(durlist, repeats);
     }
 
     totalDuration {
@@ -567,7 +569,7 @@ Panola {
             });
         }
 
-        ^Pseq(patlist, 1);
+        ^Pseq(patlist, repeats);
     }
 
     pr_animatedPatternArgs {
@@ -634,7 +636,7 @@ Panola {
             });
         }
 
-        ^Pseq(patlist, 1);
+        ^Pseq(patlist, repeats);
     }
 
     volumePattern {
