@@ -84,7 +84,7 @@ code::
 ~pattern = Pbind(
 	\instrument, \default
 	\midinote, ~phrase.midinotePattern,
-	\ampl, ~phrase.volumePattern,
+	\amp, ~phrase.volumePattern,
 	\dur, ~phrase.durationPattern,
 	\legato, ~phrase.pdurPattern,
 	\lag, ~phrase.lagPattern,
