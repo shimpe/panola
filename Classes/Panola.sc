@@ -650,7 +650,7 @@ Panola {
     }
 
     tempoPattern {
-        ^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(60.0));
+        ^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(4*60.0));
     }
 
     customPropertyPattern {
@@ -702,7 +702,7 @@ Panola {
                 };
                 if (translate_std_keys) {
                     if (stringproperty.compare("tempo") == 0) {
-                        scale = (1/(60.0));
+                        scale = (1/(4*60.0));
                     };
                     if (pbindkey.asString.compare("vol") == 0) {
                         pbindkey = \amp;
