@@ -665,7 +665,7 @@ Panola {
     }
 
     asPbind {
-        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
+        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true, include_tempo=true|
         if (custom_property_defaults.isNil) {
             custom_property_defaults = Dictionary.newFrom([
                 "vol", gVOLUME_DEFAULT,
@@ -678,17 +678,28 @@ Panola {
             custom_property_defaults.put("lag", gLAG_DEFAULT);
             custom_property_defaults.put("pdur", gPLAYDUR_DEFAULT);
             custom_property_defaults.put("tempo", gTEMPO_DEFAULT);
-        };
-        if (include_custom_properties.not) {
-            ^Pbind(
-                \instrument, instrument,
-                \midinote, this.midinotePattern,
-                \dur, this.durationPattern,
-                \lag, this.lagPattern,
-                \legato, this.pdurPattern,
-                \amp, this.volumePattern,
-                \tempo, this.tempoPattern
-            );
+		};
+		if (include_custom_properties.not) {
+			if (include_tempo) {
+				^Pbind(
+					\instrument, instrument,
+					\midinote, this.midinotePattern,
+					\dur, this.durationPattern,
+					\lag, this.lagPattern,
+					\legato, this.pdurPattern,
+					\amp, this.volumePattern,
+					\tempo, this.tempoPattern
+				);
+			} {
+				^Pbind(
+					\instrument, instrument,
+					\midinote, this.midinotePattern,
+					\dur, this.durationPattern,
+					\lag, this.lagPattern,
+					\legato, this.pdurPattern,
+					\amp, this.volumePattern,
+				);
+			};
         } {
             var mapped_props = [];
             this.customProperties.keysValuesDo({
@@ -725,9 +736,9 @@ Panola {
     }
 
     asMidiPbind {
-        | midiOut, channel=0, include_custom_properties=true, custom_property_default=nil, translate_std_keys=true |
+        | midiOut, channel=0, include_custom_properties=true, custom_property_default=nil, translate_std_keys=true, include_tempo=true |
         ^Pbindf(this.asPbind(include_custom_properties:include_custom_properties,
-            custom_property_defaults:custom_property_default,translate_std_keys:translate_std_keys),
+			custom_property_defaults:custom_property_default,translate_std_keys:translate_std_keys,include_tempo:include_tempo),
         \instrument, {},
         \type, \midi,
         \midiout, midiOut,
@@ -736,16 +747,16 @@ Panola {
     }
 
     asPmono {
-        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
+        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true, include_tempo=true|
         var result = Pmono(instrument);
-        result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys).patternpairs);
+        result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys, include_tempo).patternpairs);
         ^result;
     }
 
     asPmonoArtic {
-        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true|
+        | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true, include_tempo=true|
         var result = PmonoArtic(instrument);
-        result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys).patternpairs);
+        result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys, include_tempo).patternpairs);
         ^result;
     }
 }
