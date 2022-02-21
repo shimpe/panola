@@ -82,7 +82,7 @@ Panola {
 							recorded_digits = recorded_digits ++ char.asString;
 						} {
 							unrolldata[unrolldata.size-1] =
-							unrolldata[unrolldata.size-1].add(recorded_digits.postln.asInteger);
+							unrolldata[unrolldata.size-1].add(recorded_digits.asInteger);
 							recorded_digits = "";
 							expecting_digits = false;
 						}
@@ -97,7 +97,7 @@ Panola {
 			};
 		});
 		if (expecting_digits) {
-			unrolldata[unrolldata.size-1] = unrolldata[unrolldata.size-1].add(recorded_digits.postln.asInteger);
+			unrolldata[unrolldata.size-1] = unrolldata[unrolldata.size-1].add(recorded_digits.asInteger);
 		};
 		unrolldata = unrolldata.sort({
 			| el1, el2 |
@@ -127,7 +127,7 @@ Panola {
 			t = this.pr_unroll_cleanup(t);
 			u = this.pr_unroll_find_inner(t);
 			while ({u != []}, {
-				var first = u[0].postln;
+				var first = u[0];
 				var temp;
 				var repeater = first[3].asInteger;
 				var unrolled;
