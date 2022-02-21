@@ -135,8 +135,8 @@ DurationTester : UnitTest {
         var result = 2.collect({
             q.next;
         });
-        this.assertEquals(result, [1/4, nil]);
-        this.assertFloatEquals(p.totalDuration, 1/4);
+        this.assertEquals(result, [1, nil]);
+        this.assertFloatEquals(p.totalDuration, 1);
     }
 
     test_otherdefault {
@@ -145,8 +145,8 @@ DurationTester : UnitTest {
         var result = 2.collect({
             q.next;
         });
-        this.assertEquals(result, [1/16, nil]);
-        this.assertFloatEquals(p.totalDuration, 1/16);
+        this.assertEquals(result, [1/4, nil]);
+        this.assertFloatEquals(p.totalDuration, 1/4);
     }
 
     test_different_durations_and_remember {
@@ -155,8 +155,8 @@ DurationTester : UnitTest {
         var result = 8.collect({
             q.next;
         });
-        this.assertEquals(result, [1/4, 1/4, 1/8, 1/8, 1/7, 1/16, 1/4, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/4, 1/4, 1/8, 1/8, 1/7, 1/16, 1/4].sum);
+        this.assertEquals(result, [1, 1, 1/2, 1/2, 4/7, 1/4, 1, nil]);
+        this.assertFloatEquals(p.totalDuration, [1, 1, 1/2, 1/2, 4/7, 1/4, 1].sum);
     }
 
     test_multiplier {
@@ -165,8 +165,8 @@ DurationTester : UnitTest {
         var result = 7.collect({
             q.next;
         });
-        this.assertEquals(result, [1/4, 1/4, 1/4, 1/4, 1/8, 1/4, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/4, 1/4, 1/4, 1/4, 1/8, 1/4].sum);
+        this.assertEquals(result, [1, 1, 1, 1, 1/2, 1, nil]);
+        this.assertFloatEquals(p.totalDuration, [1, 1, 1, 1, 1/2, 1].sum);
     }
 
     test_divider {
@@ -175,8 +175,8 @@ DurationTester : UnitTest {
         var result = 4.collect({
             q.next;
         });
-        this.assertEquals(result, [1/8, 1/4, 1/8, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/8, 1/4, 1/8].sum);
+        this.assertEquals(result, [1/2, 1, 1/2, nil]);
+        this.assertFloatEquals(p.totalDuration, [1/2, 1, 1/2].sum);
     }
 
     test_multiplier_and_divider {
@@ -185,8 +185,8 @@ DurationTester : UnitTest {
         var result = 5.collect({
             q.next;
         });
-        this.assertEquals(result, [1/4, (1/8)*(2/3), (1/8)*(4/3), 1/4, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/4, (1/8)*(2/3), (1/8)*(4/3), 1/4].sum);
+        this.assertEquals(result, [1, (1/2)*(2/3), (1/2)*(4/3), 1, nil]);
+        this.assertFloatEquals(p.totalDuration, [1, (1/2)*(2/3), (1/2)*(4/3), 1].sum);
     }
 
     test_dots {
@@ -195,8 +195,8 @@ DurationTester : UnitTest {
         var result = 6.collect({
             q.next;
         });
-        this.assertEquals(result, [1/4, (1/4)+(1/8), (1/8)+(1/16)+(1/32), (1/8)+(1/16)+(1/32), 1/4, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/4, (1/4)+(1/8), (1/8)+(1/16)+(1/32), (1/8)+(1/16)+(1/32), 1/4].sum);
+        this.assertEquals(result, [1, (1)+(1/2), (1/2)+(1/4)+(1/8), (1/2)+(1/4)+(1/8), 1, nil]);
+        this.assertFloatEquals(p.totalDuration, [1, (1)+(1/2), (1/2)+(1/4)+(1/8), (1/2)+(1/4)+(1/8), 1].sum);
     }
 }
 
@@ -294,7 +294,7 @@ PropertyTester : UnitTest {
         var result = 10.collect({
             q.next;
         });
-        this.assertEquals(result, [60/(4*60), 60/(4*60), 80/(4*60), 80/(4*60), 120/(4*60), 130/(4*60), 140/(4*60), 150/(4*60), 150/(4*60), nil]);
+        this.assertEquals(result, [60/(60), 60/(60), 80/(60), 80/(60), 120/(60), 130/(60), 140/(60), 150/(60), 150/(60), nil]);
     }
 
     test_midipbind_nocustom {
@@ -304,7 +304,7 @@ PropertyTester : UnitTest {
             | el |
             q.next(());
         });
-        var testpairs = (\dur:0.25, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn, \lag:0.0, \tempo:0.33333333333333, \chan:0, \type:\midi);
+        var testpairs = (\dur:1, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn, \lag:0.0, \tempo:4*0.33333333333333, \chan:0, \type:\midi);
         testpairs.keysValuesDo({
             | key, value|
             if (value.class==Float) {
@@ -322,8 +322,8 @@ PropertyTester : UnitTest {
             | el |
             q.next(());
         });
-        var testpairs = (\dur:0.25, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
-            \lag:0.0, \tempo:0.33333333333333, \chan:0, \type:\midi, \snip:0.1, \snoop:0.15);
+        var testpairs = (\dur:1, \amp:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
+            \lag:0.0, \tempo:4*0.33333333333333, \chan:0, \type:\midi, \snip:0.1, \snoop:0.15);
         testpairs.keysValuesDo({
             | key, value|
             if (value.class==Float) {
@@ -341,7 +341,7 @@ PropertyTester : UnitTest {
             | el |
             q.next(());
         });
-        var testpairs = (\dur:0.25, \vol:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
+        var testpairs = (\dur:1, \vol:0.2, \midinote:62, \legato:0.9, \midicmd:\noteOn,
             \lag:0.0, \tempo:80, \chan:0, \type:\midi, \snip:0.1, \snoop:0.15);
         testpairs.keysValuesDo({
             | key, value|
