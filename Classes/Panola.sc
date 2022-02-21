@@ -667,17 +667,22 @@ Panola {
     asPbind {
         | instrument=\default, include_custom_properties=true, custom_property_defaults=nil, translate_std_keys=true, include_tempo=true|
         if (custom_property_defaults.isNil) {
+
             custom_property_defaults = Dictionary.newFrom([
                 "vol", gVOLUME_DEFAULT,
                 "lag", gLAG_DEFAULT,
                 "pdur", gPLAYDUR_DEFAULT,
-                "tempo", gTEMPO_DEFAULT,
             ]);
+			if (include_tempo) {
+				custom_property_defaults["tempo"] = gTEMPO_DEFAULT;
+			};
         } {
             custom_property_defaults.put("vol", gVOLUME_DEFAULT);
             custom_property_defaults.put("lag", gLAG_DEFAULT);
             custom_property_defaults.put("pdur", gPLAYDUR_DEFAULT);
-            custom_property_defaults.put("tempo", gTEMPO_DEFAULT);
+			if (include_tempo) {
+				custom_property_defaults.put("tempo", gTEMPO_DEFAULT);
+			}
 		};
 		if (include_custom_properties.not) {
 			if (include_tempo) {
@@ -706,24 +711,29 @@ Panola {
                 |stringproperty, pbindkey|
                 var default_val = 0.0;
                 var scale = 1.0;
-                if (custom_property_defaults.notNil) {
-                    if (custom_property_defaults[stringproperty].notNil) {
-                        default_val = custom_property_defaults[stringproperty];
-                    };
-                };
-                if (translate_std_keys) {
-                    if (stringproperty.compare("tempo") == 0) {
-                        scale = (1/(60.0));
-                    };
-                    if (pbindkey.asString.compare("vol") == 0) {
-                        pbindkey = \amp;
-                    };
-                    if (pbindkey.asString.compare("pdur") == 0) {
-                        pbindkey = \legato;
-                    };
-                };
+				var exclude_property = include_tempo.not.and(stringproperty.compare("tempo") == 0);
+				if (exclude_property.not) {
+					if (custom_property_defaults.notNil) {
+						if (custom_property_defaults[stringproperty].notNil) {
+							default_val = custom_property_defaults[stringproperty];
+						};
+					};
+					if (translate_std_keys) {
+						if (stringproperty.compare("tempo") == 0) {
+							scale = (1/(60.0));
+						};
+						if (pbindkey.asString.compare("vol") == 0) {
+							pbindkey = \amp;
+						};
+						if (pbindkey.asString.compare("pdur") == 0) {
+							pbindkey = \legato;
+						};
+					};
 
-                mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
+					mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
+
+
+				};
             });
             mapped_props = mapped_props.flatten;
             ^Pbind(
