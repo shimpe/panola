@@ -477,7 +477,7 @@ Panola {
             var num_of_dots = dur_el[2];
             var multiplier = dur_el[3];
             var divider = dur_el[4];
-            (1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
+            (4/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
         });
         ^Pseq(durlist, 1);
     }
@@ -490,7 +490,7 @@ Panola {
             var num_of_dots = dur_el[2];
             var multiplier = dur_el[3];
             var divider = dur_el[4];
-            (1/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
+            (4/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
         });
         ^durlist.sum;
     }
