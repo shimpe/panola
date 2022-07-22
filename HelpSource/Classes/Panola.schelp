@@ -1,7 +1,7 @@
 TITLE:: Panola
-summary:: PAttern NOtation LAnguage
-categories:: Utils
-related:: Classes/Pbind
+summary:: supercollider pattern notation language
+categories:: Midi Utils
+related:: Classes/Pattern, Classes/Pbind, Classes/Pbindf, Classes/Pmono, Classes/PmonoArtic, Classes/Pseq
 
 DESCRIPTION::
 Panola implements a subset of the midi specification language mispel in supercollider.
@@ -9,9 +9,11 @@ Mispel is a domain specific language implemented in python 3 for expressive midi
 See https://github.com/shimpe/expremigen
 
 Mispel elements that are not supported in this supercollider version include:
-    - passing animation options (tweening) for the animated properties
-    - specifying multiple tracks in one string
-    - specifying midi control change messages (e.g. animating pitchbend over time with much finer time resolution than the note events)
+tree::
+## passing animation options (tweening) for the animated properties
+## specifying multiple tracks in one string
+## specifying midi control change messages (e.g. animating pitchbend over time with much finer time resolution than the note events)
+::
 
 A Panola notation string specifies a phrase of notes.
 Notenames can be a, b, c, d, e, f, g. Optional note modifiers can be
@@ -40,66 +42,467 @@ Notes can be grouped using angular brackets to make chords. The properties of th
 
 code:: "<c4 e4 g c5>" ::
 
-After the dots one can optionally specify additional properties. Currently the following properties are supported:
-vol (volume), tempo (tempo), lag (lag), pdur (played duration, aka legato).
-Properties come in two variants: animated and fixed. An animated property will vary over the course of time until
-a new value for the property is specified. Animated properties are created by including their values in curly brackets {}. A fixed property remains fixed over the course of time until a new value for the property is specified. A fixed property is
-specified by enclosing its value in square brackets [].
+Please see the example code at the bottom for more advanced usage.
 
-E.g. here's an example of a crescendo (becoming louder):
 
-code:: "c4\\vol{0.3} d e f g a b c5\\vol{0.9}" ::
 
-In the above example, the c4 starts at volume 0.3 and the phrase ends at volume 0.9.
-The volumes of the notes in between gruadually rise so as to get a crescendo.
-Note: for now only linear animation is supported.
 
-If on the other hand we would have written:
+INSTANCEMETHODS::
 
-code:: "c4\\vol[0.3] d e f g a b c5\\vol[0.9]" ::
+METHOD:: parsed_notation
+	notes and chords together with their properties extracted from the panola string
+	
 
-Then the volume of the notes c4 to b would have remained constant at 0.3, and c5 would have
-suddenly had volume 0.9.
+returns:: a list
+METHOD:: note_to_midi
+	a lookup table converting a note + octave string into a midi note number
+	
 
-Note, as of v0.0.9, Panola also supports using the "@" sign instead of a backslash for indicating properties. So you could also write
+returns:: a Dictionary
+METHOD:: gOCTAVE_DEFAULT
+	the default octave of a note, in case no octave was ever specified in one of the previous notes
+	(typically "4")
+	
 
-code:: "c4@vol[0.3] d e f g a b c5@vol[0.9]" ::
+returns:: a string
+METHOD:: gDURATION_DEFAULT
+	the default duration of a note in beats, in case no duration was ever specified in one of the previous notes (typically "4")
+	
 
-Panola allows you to interpret an valid Panola string by extracting information from it, either as a complete Pbind.
-You can ask .asPbind which returns a Pbind that is suitable for use with the supercollider server, or you can ask it
-to .asMidiPbind, which returns a Pbind that can communicate with external software/hardware synthesizers over MIDI.
+returns:: a string
+METHOD:: gMODIFIER_DEFAULT
+	default modifier (sharp, flat, double sharp or double flat) of a note - typically the empty string
+	
+
+returns:: a string
+METHOD:: gMULTIPLIER_DEFAULT
+	default duration multiplier of a note (typically "1")
+	
+
+returns:: a string
+METHOD:: gDIVIDER_DEFAULT
+	default duration divider of a note (typically "1")
+	
+
+returns:: a string
+METHOD:: gVOLUME_DEFAULT
+	default volume of a note, between 0 and 1 (typically "0.5")
+	
+
+returns:: a string
+METHOD:: gPLAYDUR_DEFAULT
+	default playdur (indication for legato/staccato) of a note, between 0 and 1 (typically "0.9")
+	
+
+returns:: a string
+METHOD:: gLAG_DEFAULT
+	default lag of a note (typically "0")
+	
+
+returns:: a string
+METHOD:: gDOTS_DEFAULT
+	default number of dots after a note (typically an empty string) - like in traditional notation a dot adds half of the duration to the specified duration. Multiple dots are supported too.
+	
+
+returns:: a string
+METHOD:: gTEMPO_DEFAULT
+	default tempo (typically 80 bpm) - note that tempo is a special key in that it influences the tempo of the complete system (so all other voices running in parallel are affected too). For this reason, when deriving supercollider patterns from panola strings, the inclusion of the tempo-key is made optional.
+	
+
+returns:: a string
+METHOD:: customProperties
+	a lookup table containing all properties specified in the panola input string
+	
+
+returns:: a Dictionary
+METHOD:: pr_unroll_cleanup
+one of a few internal functions to cleanup the panola input string before starting parsing; this one will clean up whitespaces around brackets, part of the repetitiion syntax.
+
+ARGUMENT:: txt
+a valid panola input string
+
+returns:: a cleaner valid panola input string
+METHOD:: pr_unroll_checksyntax
+internal function to check if there are equally many opening brackets as closing brackets
+
+ARGUMENT:: txt
+a valid panola input string
+
+returns:: a boolean
+METHOD:: pr_unroll_find_inner
+internal function to unroll sections with repeat syntax into a plain panola string
+
+ARGUMENT:: txt
+a valid panola input string
+
+returns:: an valid panola input string with the inner repeated section unrolled
+METHOD:: pr_unroll
+internal function to unroll sections with repeat syntax into a plain panola string
+
+ARGUMENT:: t
+a valid panola input string
+
+returns:: an valid panola input string with all repeated sections unrolled
+METHOD:: pr_read_token
+internal function to return the next token in the panola string
+
+ARGUMENT:: string_so_far
+string with all previously read tokens cut off
+
+ARGUMENT:: token_regexp
+regexp describing next token that is expected
+
+ARGUMENT:: token_default
+default value in case token is not found
+
+ARGUMENT:: semantic_token_action
+function that can act on the extracted token
+
+ARGUMENT:: token_not_found_action
+function to execute if the token is not found
+
+returns:: the extracted token, and the rest of the string that is not yet parsed
+METHOD:: init_notation
+internal function to initialize the parsing infrastructure, lookup tables, etc
+
+ARGUMENT:: notation
+notation string that is passed in
+
+ARGUMENT:: octave_default
+default octave
+
+ARGUMENT:: dur_default
+default duration
+
+ARGUMENT:: modifier_default
+default modifier (sharp, flat, ...)
+
+ARGUMENT:: mult_default
+default duration multiplier
+
+ARGUMENT:: div_default
+default duration divider
+
+ARGUMENT:: vol_default
+default volume
+
+ARGUMENT:: playdur_default
+default playdur (legato/staccato)
+
+ARGUMENT:: lag_default
+default lag
+
+ARGUMENT:: tempo_default
+default tempo
+
+returns:: after running this function, the panola string is internally unrolled and parsed
+METHOD:: unroll_loops
+internal function to clean up a panola input string; this function has a misleading name, it currently only removes some spaces and in fact seems to mostly duplicate pr_unroll_cleanup (TODO - investigate)
+
+ARGUMENT:: notation
+panola input string to be cleaned up
+
+returns:: a cleaned up string
+METHOD:: noteToMidi
+look up a midi note number for a midi note name
+
+ARGUMENT:: note
+midi note name
+
+returns:: an integer
+METHOD:: notationnotePattern
+extracts from the current panola string a Pseq pattern containing only the note names
+
+returns:: a pattern (Pseq)
+METHOD:: getNoOfEvents
+extracts from the current panola string the number of events (notes) present in the pattern
+
+returns:: an integer
+METHOD:: midinotePattern
+extracts from the current panola string a Pseq pattern containing only the midi note numbers corresponding to the notes in the panola string
+
+returns:: a pattern (Pseq)
+METHOD:: notationdurationPattern
+extracts from the current panola string a Pseq pattern containing only the midi note durations in the form of a string corresponding to the notes in the panola string
+
+returns:: a pattern (Pseq)
+METHOD:: durationPattern
+extracts from the current panola string a Pseq pattern containing only the midi note durations in the form of numbers corresponding to the durations in beats of the notes in the panola string
+
+returns:: a pattern (Pseq)
+METHOD:: totalDuration
+total duration in beats of a panola string
+
+returns:: a pattern (Pseq)
+METHOD:: numberOfNotesOrChords
+number of notes/chords in a panola string
+
+returns:: a pattern (Pseq)
+METHOD:: pr_animatedPattern
+internal method to return a pattern generating the values of a panola property, also taking into account the defined automations - this is a generic method that is used by practically all other pattern extraction functions
+
+returns:: a pattern (Pseq)
+METHOD:: pr_animatedPatternArgs
+internal generic method to return a pattern generating the argument values to a panola property, taking into account the defined automations
+
+ARGUMENT:: prop_name
+property name for which to generate a pattern (default: vol)
+
+ARGUMENT:: default_type
+default animation type (default: fixed, one of fixed/anim)
+
+ARGUMENT:: default_propval
+default value of a property that was not yet encountered (default: 0.5)
+
+returns:: a pattern (Pseq) generating the property argument values
+METHOD:: volumePattern
+method to return a pattern generating the volume values from a panola string, taking into account the defined automations
+
+returns:: a pattern (Pseq) generating the volume values
+METHOD:: lagPattern
+method to return a pattern generating the lag values from a panola string, taking into account the defined automations
+
+returns:: a pattern (Pseq) generating the lag values
+METHOD:: pdurPattern
+method to return a pattern generating the pdur (legato/staccato) values from a panola string, taking into account the defined automations
+
+returns:: a pattern (Pseq) generating the pdur values
+METHOD:: tempoPattern
+method to return a pattern generating the tempo values from a panola string, taking into account the defined automations
+
+returns:: a pattern (Pseq) generating the tempo values
+METHOD:: customPropertyPattern
+method to return a pattern generating a user defined property's values from a panola string, taking into account the defined automations
+
+ARGUMENT:: customstring
+name of the property
+
+ARGUMENT:: default
+default value of the property if not specified explicitly
+
+returns:: a pattern (Pseq) generating the customProperty values
+METHOD:: customPropertyPatternArgs
+method to return a pattern generating a user defined property's argument values from a panola string, taking into account the defined automations
+
+ARGUMENT:: customstring
+name of the property
+
+ARGUMENT:: default
+default value of the property if not specified explicitly
+
+returns:: a pattern (Pseq) generating the customProperty argument values
+METHOD:: asPbind
+method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths
+
+ARGUMENT:: instrument
+name of the synthdef to use in the pattern's \instrument key
+
+ARGUMENT:: include_custom_properties
+boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \instrument, \midinote, \dur, \lag, \legato, \amp and optionally \tempo are extracted
+
+ARGUMENT:: custom_property_defaults
+a Dictionary specifying default values for used defined properties
+
+ARGUMENT:: translate_std_keys
+a boolean to indicate that for certain standard keys like \tempo, a transformation takes place to convert it into a number that can be passed into a tempoclock; the key \vol is translated to \amp in the pattern and the key \pdur is translated into \legato. The existence of these translations is caused by wanting to keep backward compatibility with the python expremigen library
+
+ARGUMENT:: include_tempo
+a boolean to indicate if tempo should be part of the Pbind. Note that the tempo key modifies the TempoClock and therefore influences all voices playing on that same TempoClock in the system (which may not be desired...)
+
+returns:: a pattern (Pbind) realizing the panola string
+METHOD:: asMidiPbind
+method to return a pattern suitable for communication to an external synth generating all the properties in the panola string
+
+ARGUMENT:: midiOut
+a MIDIOut instance used to communicate with a hardware synth
+
+ARGUMENT:: channel
+a midi channel number
+
+ARGUMENT:: include_custom_properties
+boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \instrument, \midinote, \dur, \lag, \legato, \amp and optionally \tempo are extracted
+
+ARGUMENT:: custom_property_defaults
+a Dictionary specifying default values for used defined properties
+
+ARGUMENT:: translate_std_keys
+a boolean to indicate that for certain standard keys like \tempo, a transformation takes place to convert it into a number that can be passed into a tempoclock; the key \vol is translated to \amp in the pattern and the key \pdur is translated into \legato. The existence of these translations is caused by wanting to keep backward compatibility with the python expremigen library
+
+ARGUMENT:: include_tempo
+a boolean to indicate if tempo should be part of the Pbind. Note that the tempo key modifies the TempoClock and therefore influences all voices playing on that same TempoClock in the system (which may not be desired...)
+
+returns:: a pattern (Pbind) realizing the panola string
+METHOD:: asPmono
+method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths
+
+ARGUMENT:: instrument
+name of the synthdef to use in the pattern's \instrument key
+
+ARGUMENT:: include_custom_properties
+boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \instrument, \midinote, \dur, \lag, \legato, \amp and optionally \tempo are extracted
+
+ARGUMENT:: custom_property_defaults
+a Dictionary specifying default values for used defined properties
+
+ARGUMENT:: translate_std_keys
+a boolean to indicate that for certain standard keys like \tempo, a transformation takes place to convert it into a number that can be passed into a tempoclock; the key \vol is translated to \amp in the pattern and the key \pdur is translated into \legato. The existence of these translations is caused by wanting to keep backward compatibility with the python expremigen library
+
+ARGUMENT:: include_tempo
+a boolean to indicate if tempo should be part of the Pbind. Note that the tempo key modifies the TempoClock and therefore influences all voices playing on that same TempoClock in the system (which may not be desired...)
+
+returns:: a pattern (Pmono) realizing the panola string
+METHOD:: asPmonoArtic
+method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths
+
+ARGUMENT:: instrument
+name of the synthdef to use in the pattern's \instrument key
+
+ARGUMENT:: include_custom_properties
+boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \instrument, \midinote, \dur, \lag, \legato, \amp and optionally \tempo are extracted
+
+ARGUMENT:: custom_property_defaults
+a Dictionary specifying default values for used defined properties
+
+ARGUMENT:: translate_std_keys
+a boolean to indicate that for certain standard keys like \tempo, a transformation takes place to convert it into a number that can be passed into a tempoclock; the key \vol is translated to \amp in the pattern and the key \pdur is translated into \legato. The existence of these translations is caused by wanting to keep backward compatibility with the python expremigen library
+
+ARGUMENT:: include_tempo
+a boolean to indicate if tempo should be part of the Pbind. Note that the tempo key modifies the TempoClock and therefore influences all voices playing on that same TempoClock in the system (which may not be desired...)
+
+returns:: a pattern (Pmono) realizing the panola string
+
+EXAMPLES::
 
 code::
+// Panola is a way to extract Pbind keys from a concise specification.
+// This makes it easier to compose "traditional" music with Pbind, with a lot less
+// headache trying to keep the different keys in sync
+// It's the type of system I've missed since my day one with supercollider.
+
+// First things first. To install Panola:
+
+Quarks.install("https://github.com/shimpe/panola");
+
+// Now you can get the help document by typing ctrl+D with the cursor on the word
+// Panola in the next line
+
+Panola.new("a4");
+
+// Let's start with the "Hello world" of Panola: a simple scale.
+// The numbers indicate octaves.
+// You don't need to repeat octave numbers if they don't change between notes.
 (
-~phrase = Panola.new("c d e f g");
-~pattern = ~phrase.asPbind(\default); // instrument as parameter
-~player = ~pattern.play;
+~ex = Panola.new("c4 d e f g a b c5");
+~player = ~ex.asPbind.play;
 )
-::
-or, more flexibly, by extracting individual information patterns:
 
-code::
+// asPbind takes a synth name as parameter (which defaults to \default).
+// So the above is equivalent to
 (
-~phrase = Panola.new("c d e f g");
-~pattern = Pbind(
-	\instrument, \default
-	\midinote, ~phrase.midinotePattern,
-	\amp, ~phrase.volumePattern,
-	\dur, ~phrase.durationPattern,
-	\legato, ~phrase.pdurPattern,
-	\lag, ~phrase.lagPattern,
-	\temp, ~phrase.tempoPattern
-); // instrument as parameter
-~player = ~pattern.play;
+~ex = Panola.new("c4 d e f g a b c5");
+~player = ~ex.asPbind(\default).play;
 )
-::
 
-In addition to these predefined properties, you can also use any user defined pattern, e.g.
-
-code::
+// instead of calling a single "asPbind" you can also extract all information separately
+// like this you have optimal flexibility in what you want to use from Panola
 (
-~phrase = Panola.new("c d\\myprop{0.1} e f g a\\myprop{0.6}");
-~pattern = ~phrase.customPropertyPattern("myprop"); // extract only myprop as a pattern
+~ex = Panola.new("c4 d e f g a b c5");
+~pat = Pbind(\instrument, \default,	\midinote, ~ex.midinotePattern,	\dur, ~ex.durationPattern, \amp, ~ex.volumePattern,	\tempo, ~ex.tempoPattern, \lag, ~ex.lagPattern,	\legato, ~ex.pdurPattern);
+~player = ~pat.play;
+)
+
+// You can make chords using angular brackets. Only note properties of the first
+// note in the chord (other than octave number and note modifier (see later)) are
+// taken into account.
+(
+~ex = Panola.new("<c4 e> <e g> <c e g c5>");
+~player = ~ex.asPbind.play;
+)
+
+// You can use modifiers on the notes:
+//                                                                
+(
+~ex = Panola.new("c4 d- e f# gx a# b-- c5");
+~player = ~ex.asPbind.play;
+)
+
+
+// With underscores you can indicate rhythm.
+// The last used rhythm value is reused until a new one is specified:
+// Here's four quarter notes (_4) followed by four eighth notes (_8).
+(
+~ex = Panola.new("c4_4 d e f g_8 a b c5");
+~player = ~ex.asPbind.play;
+)
+
+// You can use one or more dots to extend the length of the rhythm, as in traditional notation.
+(
+~ex = Panola.new("c4_4. d_8 e_4 f g_16 a_4.. b_4 c5");
+~player = ~ex.asPbind.play;
+)
+
+// You can also use multipliers and/or dividers to change the length.
+// E.g. here we use it to create a note that lasts for three eighths
+// (c4_8*3) and to create tuplets (e_8*2/3 f g). Remember that last
+// duration/rhythm indication is reused until a new one is specified.
+(
+~ex = Panola.new("c4_8*3 d_8 e_8*2/3 f g f_16 e f e g_4 b_4 c5");
+~player = ~ex.asPbind.play;
+)
+
+// You can repeat certain phrases by putting them in brackets and multiply
+// them with a number (corresponding to the number of repeats)( )*3
+// repeats can be nested
+(
+~ex = Panola.new("((c4_16 d)*3 (e f)*3)*2 (g a)*3 c5_4");
+~player = ~ex.asPbind.play;
+)
+
+// Now we come to the animated property system. We can attach properties to the notes and animate them over time.
+// For now two types of animation are supported: linear interpolation and fixed value.
+// To indicate linear interpolation, use curly brackets {}. E.g. here we let the tempo gradually increase from 80 bpm to 160 bpm:
+(
+~ex = Panola.new("c4@tempo{80} d e f g a b c5@tempo{160}");
+~player = ~ex.asPbind.play;
+)
+
+// Different properties can be combined. Here we let the volume go up until the middle of the phrase, then let it go down again,
+// while tempo is rising from 80 bpm to 160 bpm.
+
+(
+~ex = Panola.new("c4@tempo{80}@vol{0.2} d e f g@vol{0.9} a b c5@tempo{160}@vol{0.2}");
+~player = ~ex.asPbind.play;
+)
+
+// If you want to use the fixed values, use square brackets instead. You can switch between fixed and animated everytime
+// you specify a new property value. In the next example, tempo remains at 80 bpm until we come to note a. At that point,
+// it jumps to value 100 bpm and gradually increases to 200.
+(
+~ex = Panola.new("c4@tempo[80] d e f g a@tempo{100} b c5 d e f g a b c6@tempo{200}");
+~player = ~ex.asPbind.play;
+)
+
+// Using pdur (think: played duration), we can indicate the difference between staccato and legato.
+// Here we slowly evolve from very staccato to very legato:
+(
+~ex = Panola.new("c4_8@pdur{0.1} d e f g a b c5 d e f g a b c6@pdur{1}");
+~player = ~ex.asPbind.play;
+)
+
+// Using lag we can modulate lag. This can be a way of creating a rubato feeling.
+// Linear interpolation is not ideal for this purpose, but it's better than nothing at the moment.
+
+(
+~ex = Panola.new("a5_8@tempo[120]@lag{0} b c6 a5 e d c5 d e c a4 g#4@lag{0.5} "
+	"a4_8 b c5 a4 e d c4 d e c a3 g#3 a b c4 d e g# a_2@lag{0}");
+~player = ~ex.asPbind.play;
+)
+
+// In addition to using predefined properties like tempo and lag, you can also use user
+// defined properties, e.g. here we animate a property called "myprop".
+(
+~phrase = Panola.new("c d@myprop{0.1} e f g a@myprop{0.6}");
+~pattern = ~phrase.customPropertyPattern("myprop"); // extract only myprop values as a pattern
 ~stream = ~pattern.asStream;
 10.do({
 	| i |
@@ -108,6 +511,7 @@ code::
 )
 // make a pbind in which the myprop appears as one of the keys, with a default value of 0 for myprop
 (
+~phrase = Panola.new("c d@myprop{0.1} e f g a@myprop{0.6}");
 ~pbind = ~phrase.asPbind(\default);
 ~stream = ~pbind.patternpairs[13].asStream;
 10.do({
@@ -119,6 +523,7 @@ code::
 // (such default values are used if no values for myprop are specified yet, e.g. in the beginning of a Panola string,
 //  before any myprop is defined).
 (
+~phrase = Panola.new("c d@myprop{0.1} e f g a@myprop{0.6}");
 ~pbind = ~phrase.asPbind(\default, custom_property_defaults:Dictionary.newFrom(["myprop", 0.4]));
 ~stream = ~pbind.patternpairs[13].asStream;
 10.do({
@@ -128,429 +533,14 @@ code::
 )
 // make pbind in which only the standard panola keys are included
 (
+~phrase = Panola.new("c d@myprop{0.1} e f g a@myprop{0.6}");
 ~pbind = ~phrase.asPbind(\default, include_custom_properties:false);
 ~pbind.patternpairs.postln;
 )
-::
 
-CLASSMETHODS::
-
-METHOD:: new
-creates a new Panola instance
-
-ARGUMENT:: notation
-a string containing a valid panola notation string
-
-ARGUMENT:: octave_default
-which octave to use if not explicitly specified (default=4)
-
-ARGUMENT:: dur_default
-which duration to use if not explicitly specified (default=quarter note)
-
-ARGUMENT:: modifier_default
-which note modifier to use if not explicitly specified (default=none)
-
-ARGUMENT:: mult_default
-extra multiplier used to specify tuplets (default=1)
-
-ARGUMENT:: div_default
-extra divider used to specify tuplets (default=1)
-
-ARGUMENT:: vol_default
-volume value to use if not explicitly specified (default=0.5)
-
-ARGUMENT:: playdur_default
-legato value to use if not explicitly specified (default=0.9)
-
-ARGUMENT:: lag_default
-lag value to use if not explicitly specified(default=0)
-
-ARGUMENT:: tempo_default
-tempo value to use if not explicitly specified(default=80 bpm)
-
-returns:: an object from which several patterns can be asked
-
-
-INSTANCEMETHODS::
-
-METHOD:: asPbind
-returns all info in the score as a pattern. All properties are turned into Pbind keys
-
-ARGUMENT:: instrument
-the instrument to use in the Pbind
-
-ARGUMENT:: include_custom_properties
-a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
-or if all user defined properties should be included as well
-
-ARGUMENT:: custom_property_defaults
-a Dictionary containing default values for properties. These defaults are used as long as no value for the
-property is specified in the Panola specification. If you provide a default value for a key, but you never
-reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
-
-ARGUMENT:: translate_std_keys
-if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
-correctly scaled to be used in a TempoClock
-
-returns:: a Pbind of \type \note
-
-METHOD:: asMidiPbind
-returns the info in the score as a pattern that produces midi noteOn/noteOff events. This can be used with external devices.
-
-ARGUMENT:: midiOut
-this is an instance of a MIDIOut, already connected to an external software/hardware synth
-
-ARGUMENT:: channel
-midi channel (default:0) on which to send the noteOn/noteOff events
-
-ARGUMENT:: include_custom_properties
-a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
-or if all user defined properties should be included as well. In case of midi events, these extra keys most likely
-will not have any effect.
-
-ARGUMENT:: custom_property_default
-a Dictionary containing default values for properties. These defaults are used as long as no value for the
-property is specified in the Panola specification. If you provide a default value for a key, but you never
-reference the key in the Panola string, it will not be part of the Pbind that results from calling asPbind.
-
-ARGUMENT:: translate_std_keys
-if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
-correctly scaled to be used in a TempoClock
-
-returns:: a Pbind of \type \midi
-
-METHOD:: asPmono
-returns the info in the score as a Pmono
-
-ARGUMENT:: instrument
-the instrument to use in the Pmono
-
-ARGUMENT:: include_custom_properties
-a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
-or if all user defined properties should be included as well
-
-ARGUMENT:: custom_property_defaults
-a Dictionary containing default values for properties. These defaults are used as long as no value for the
-property is specified in the Panola specification. If you provide a default value for a key, but you never
-reference the key in the Panola string, it will not be part of the Pmono that results from calling asPmono.
-
-ARGUMENT:: translate_std_keys
-if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
-correctly scaled to be used in a TempoClock
-returns:: a Pmono of \type \note
-
-METHOD:: asPmonoArtic
-returns the info in the score as a PmonoArtic
-
-ARGUMENT:: instrument
-the instrument to use in the PmonoArtic
-
-ARGUMENT:: include_custom_properties
-a boolean indicating if only the standard fields (tempo, lag, midinote, duration, pdur) should be included,
-or if all user defined properties should be included as well
-
-ARGUMENT:: custom_property_defaults
-a Dictionary containing default values for properties. These defaults are used as long as no value for the
-property is specified in the Panola specification. If you provide a default value for a key, but you never
-reference the key in the Panola string, it will not be part of the PmonoArtic that results from calling asPmonoArtic.
-
-ARGUMENT:: translate_std_keys
-if true (default), key "vol" is translated to \amp and key "pdur" is translated to \legato and key "tempo" is
-correctly scaled to be used in a TempoClock
-returns:: a PmonoArtic of \type \note
-
-METHOD:: gMODIFIER_DEFAULT
-default note modifier
-
-returns:: returns default note modifier in use
-
-METHOD:: volumePattern
-volumePattern
-
-returns:: returns a pattern generating the required volume entries
-
-METHOD:: parsed_notation
-internal data structure containing parse tree of the panola notation string
-
-returns:: internal data structure containing parse tree of the panola notation string
-
-METHOD:: init_notation
-internal helper method to parse the panola notation
-
-ARGUMENT:: notation
-string containing valid panola notation
-
-ARGUMENT:: octave_default
-wich octave to use by default (4, unless specified differently during .new)
-
-ARGUMENT:: dur_default
-which duration to use by default (1/4, unless specified differently during .new)
-
-ARGUMENT:: modifier_default
-which modifier to use by default (none)
-
-ARGUMENT:: mult_default
-which rhythm multiplier to use by default (1)
-
-ARGUMENT:: div_default
-which rhythm divider to use by default (1)
-
-ARGUMENT:: vol_default
-which volume to use by default (0.5)
-
-ARGUMENT:: playdur_default
-which legato setting to use by default (0.9)
-
-ARGUMENT:: lag_default
-which lag to use by default (0)
-
-ARGUMENT:: tempo_default
-which tempo to use by default (80 bpm)
-
-returns:: nothing of interest
-
-METHOD:: gPLAYDUR_DEFAULT
-default legato value (0.9)
-
-returns:: returns default legato value in use
-
-METHOD:: init_midilookup
-internal helper method to create notename to midi number lookup table
-
-returns:: nothing
-
-METHOD:: gDIVIDER_DEFAULT
-default duration divider (1)
-
-returns:: default duration divider
-
-METHOD:: gOCTAVE_DEFAULT
-default octave (4)
-
-returns:: default octave
-
-METHOD:: gDOTS_DEFAULT
-default number of dots (0)
-
-returns:: default number of dots
-
-METHOD:: gTEMPO_DEFAULT
-default tempo (80 bpm)
-
-returns:: default tempo
-
-METHOD:: gLAG_DEFAULT
-default lag (0)
-
-returns:: default lag
-
-METHOD:: durationPattern
-pattern generating the successive durations to realize the notation
-
-returns:: pattern generating the successive durations to realize the notation
-
-METHOD::customPropertyPattern
-returns a pattern describing the values of a custom property through the score
-
-ARGUMENT:: customstring
-this is the name of the property you're extracting from the score
-
-ARGUMENT:: default
-this is the default value for the property
-
-returns:: a pattern
-
-
-METHOD:: pr_animatedPattern
-internal helper method for turning animated properties into pattern
-
-ARGUMENT:: prop_name
-string describing name of property in panola notation
-
-ARGUMENT:: default_type
-type to use if no type specified
-
-ARGUMENT:: default_propval
-value to use if no property value specified
-
-returns:: pattern generating the property values needed to realize the notation string
-
-METHOD:: pdurPattern
-pattern generating the successive legato values to realize the notation
-
-returns:: pattern generating the successive legato values to realize the notation
-
-METHOD:: gMULTIPLIER_DEFAULT
-default duration multiplier value
-
-returns:: default duration multiplier value
-
-METHOD:: gDURATION_DEFAULT
-default duration
-
-returns:: default duration
-
-METHOD:: lagPattern
-pattern generating the successive lag values to realize the pattern
-
-returns:: pattern generating the successive lag values to realize the pattern
-
-METHOD:: gVOLUME_DEFAULT
-default volume
-
-returns:: default volume
-
-METHOD:: midinotePattern
-pattern generating the successsive midi notes to realize the pattern
-
-returns:: pattern generating the successsive midi notes to realize the pattern
-
-METHOD:: notationnotePattern
-pattern generating the successive notated notes to realize the pattern (mostly useful for display purposes)
-
-returns:: pattern generating the successive notated notes to realize the pattern
-
-METHOD:: notationdurationPattern
-pattern generating the successive notated durations to realize the pattern (mostly useful for display purposes)
-
-returns:: pattern generating the successive notated durations to realize the pattern
-
-METHOD:: tempoPattern
-pattern generating the successsive tempo values to realize the pattern
-
-returns:: pattern generating the successsive tempo values to realize the pattern
-
-METHOD:: note_to_midi
-internal lookup table
-
-returns:: lookup table to transform note names into midinotes
-
-METHOD:: init
-initialization of internal data structures + parsing of notation string
-
-ARGUMENT:: notation
-panola string with notation
-
-ARGUMENT:: octave_default
-default octave
-
-ARGUMENT:: dur_default
-default duration
-
-ARGUMENT:: modifier_default
-default modifier
-
-ARGUMENT:: mult_default
-default multiplier
-
-ARGUMENT:: div_default
-default divider
-
-ARGUMENT:: vol_default
-default volume
-
-ARGUMENT:: playdur_default
-default legato
-
-ARGUMENT:: lag_default
-default lag
-
-ARGUMENT:: tempo_default
-default tempo
-
-returns:: internally initialized Panola instance
-
-EXAMPLES::
-
-Using Panola without pattern:
-
-code::
-(
-p = Panola.new("c4 g4 c4 c4_16\\vol{0.6} e  g\\lag{0} c#5 bx4_8*2/3 g- f5\\lag[2]\\vol{0.1} d--_4 c_4 r\\vol{0.9}");
-u = p.notationnotePattern.asStream;
-w = p.midinotePattern.asStream;
-v = p.durationPattern.asStream;
-x = p.notationdurationPattern.asStream;
-q = p.volumePattern.asStream;
-r = p.lagPattern.asStream;
-t = p.pdurPattern.asStream;
-14.do({
-	("Note: "++u.next++" (midinote "++w.next++")").postln;
-	("Duration: "++v.next++" (i.e."++x.next++")").postln;
-	("Volume: "++q.next).postln;
-	("Lag: "++r.next).postln;
-	("Legato: "++t.next).postln;
-	"".postln;
-});
-)
-::
-
-Using Panola in a pattern
-
-code::
-(
-s.waitForBoot({
-	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
-"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
-"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
-"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
-	~player = p.asPbind.play;
-});
-)
-
-or the same, but more verbose:
-
-(
-s.waitForBoot({
-	p = Panola.new("c4\\vol{0.4}\\pdur[0.9]\\tempo{80} d e c c d e c "
-"e\\pdur[1.0] f g_2 e_4 f g_2\\vol{0.8} "
-"g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c g_8\\pdur[0.1] a g f e_4\\pdur[0.9] c_4\\tempo{120} "
-"c\\tempo[50] g3 c4_2 c_4\\tempo[12.5] g3 c4_2\\vol{0.2}");
-
-	q = Pbind(
-		\instrument, \default,
-		\midinote, p.midinotePattern,
-		\dur, p.durationPattern,
-		\amp, p.volumePattern,
-		\legato, p.pdurPattern,
-		\lag, p.lagPattern,
-		\tempo, p.tempoPattern.trace,
-	);
-	~player = q.play;
-});
-)
-::
-
-Multiple voices: first part of J.S. Bach's bwv784 2-voice invention 13
-
-code::
-(
-s.waitForBoot({
-	var v1 = Panola.new("r_16\\tempo[80]\\pdur[1.0]\\vol{0.7} e4 a c5 b4 e b d5 c_8\\pdur[0.2]\\vol{0.9} e g#4 e5 "
-"a4_16\\vol{0.7} e4_16\\pdur[1.0] a c5 b4 e b d5 c_8\\vol{0.9}\\pdur[0.2] a4 r_4\\vol{0.7} "
-"r_16 e5\\vol{0.3}\\pdur[1.0] c e a4 c5 e4 g f_8\\vol{0.9}\\pdur[0.2] a\\vol{0.7} d5 f_8.\\vol{0.3} "
-"d_16\\pdur[1.0] b4 d5 g4 b d f e_8\\vol{0.9}\\pdur[0.2] g\\vol{0.7} c5 e_8.\\vol{0.3} "
-"c5_16\\pdur[1.0] a4 c5 f4_8\\vol{0.9}\\pdur[0.2] d5_8.\\vol{0.3}\\pdur[1.0] b4_16 g b "
-"e_8\\vol{0.9}\\pdur[0.2] c5_8.\\vol{0.3}\\pdur[1.0] "
-"a4_16 f a d_8\\vol{0.9}\\pdur[0.2] b_8 c5_8 r_8 r_4 ");
-	var v2 = Panola.new("a2_8\\tempo[80]\\vol{0.6}\\pdur[0.2] a3_4\\pdur[1.0]\\vol{0.7} g#_8\\vol{0.6} a_16\\pdur[0.2]\\vol{0.7} e3\\pdur[1.0] a c4 b3 e b d4 "
-"c_8\\pdur[0.2]\\vol{0.9} a3 g# e a_16\\vol{0.7} e\\pdur[1.0] a c4 b3 e b d4 "
-"c_8\\pdur[0.2]\\vol{0.9} a3 c4 a3 "
-"d4_16\\vol{0.7} a3\\pdur[1.0] f a d f a2 c3 "
-"b2_8\\vol{0.3}\\pdur[0.2] d3 g b_8.\\vol{0.7}\\pdur[1.0] g3_16 e g c e g2 b "
-"a_8\\vol{0.3}\\pdur[0.2] c3\\vol{0.6} d_16\\pdur[1.0] f b2 d3 g2_8\\vol[0.7]\\pdur[0.2] b c3_16\\vol{0.7}\\pdur[1.0] e a2 c3 "
-"f2_8\\vol{0.3}\\pdur[0.2] d g_16\\vol{0.4} g3\\pdur[1.0] f g c\\vol{0.6}\\pdur[0.2] g\\pdur[1.0] "
-"c4 e d g3 d4 f e_8\\vol{0.7}\\pdur[0.2] c ");
-
-	var all = Ppar([v1.asPbind, v2.asPbind], 1);
-	~player = all.play;
-});
-)
-::
-
-Driving a synth using custom properties
-
-code::
+// These custom properties can be e.g. used to drive synth arguments
+// The 303 synth used below is reused from https://sccode.org/1-4Wy
+// which in turn is based on code from Lance J. Putnam
 (
 s.waitForBoot({
 	var line;
@@ -567,132 +557,34 @@ s.waitForBoot({
 	s.sync;
 
 	line = Panola.new(
-"a2_16\\wave[0]\\vol{0.05}\\tempo{120}\\res{0.2}\\sus{0}\\env{1000}\\ctf{100} a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.05}"
-"a2_16\\wave[0] a a a1 a2 a a3\\sus{0.2} a2 a\\ctf{3000} a a1 a2 a3 a2 b- g\\res{0.2}"
-"a2_16\\wave[0] a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g\\res{0.01}\\sus{0}\\env{10000}\\ctf{10}"
+		"a2_16@wave[0]@vol{0.05}@tempo{120}@res{0.2}@sus{0}@env{1000}@ctf{100} a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g@res{0.05} "
+		"a2_16@wave[0] a a a1 a2 a a3@sus{0.2} a2 a@ctf{3000} a a1 a2 a3 a2 b- g@res{0.2} "
+		"a2_16@wave[0] a a a1 a2 a a3 a2 a a a1 a2 a3 a2 b- g@res{0.01}@sus{0}@env{10000}@ctf{10} "
 	);
 	~player = line.asPbind(\sc303).play;
 });
-)
-::
 
-Complete piece in 4 voices being sent to a Prophet Rev 2 hardware synthesizer.
-This makes use of the ScProphetRev2 quark for talking to a Dave Smith Instruments prophet Rev2,
-available from https://github.com/shimpe/sc-prophet-rev2.
-You can of course use your own initialized MIDIOut object instead.
-
-code::
+// example of automating a piano sustain pedal
+// by using a custom property ped
+// (the point being that property "ped" has no special meaning in panola, but we can add the meaning ourself)
+// I've chosen argument values 0 - 127 to also allow sending half-pedal values for those pianos that support it
 (
-p = ScProphetRev2.new;
-p.connect;
-fork {
-	    var v1 = Panola.new(
-"r_2\\tempo[76] "
-"a2_4\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"g3_8*5\\pdur[1.0] f#_8 g\\pdur[0.3] g "
-"f# f# g g "
-"g3_8*5\\pdur[1.0] f#_8 g\\pdur[0.3] g "
-"f# f# g g "
-"r_2 "
-"a2_4\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"g3_8*5\\pdur[1.0] f#_8 g\\pdur[0.3] g "
-"f# f# g g "
-"g3_8*5\\pdur[1.0] f#_8 g\\pdur[0.3] g "
-"f# f# g g "
-"g f# g g f# f# g g "
-"g f# g g f# f# g g "
-"r_2 "
-"a2_4\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-"a2\\pdur[1.0] d3\\pdur[0.3] f#\\pdur[1.0] e\\pdur[0.3] "
-	    );
-	    var v2 = Panola.new(
-"r_2 "
-"r  "
-"r  "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"b-3_8*5 a_8 b- b- a a b- b- "
-"b-3_8*5 a_8 b- b- a a b- b- "
-"r_2 "
-"r  "
-"r  "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"b-3_8*5 a_8 b- b- a a b- b- "
-"b-3_8*5 a_8 b- b- a a b- b- "
-"b- a b- b- a a b- b- "
-"b- a b- b- a a b- b- "
-"r_2 "
-"r  "
-"r  "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-"r_4 f#3\\pdur[1.0] a3_2 "
-	    );
-	    var v3 = Panola.new(
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"d4_8*5 c#_8 d d c# c# d d "
-"d4_8*5 c#_8 d d c# c# d d "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"d4_8*5 c#_8 d d c# c# d d "
-"d4_8*5 c#_8 d d c# c# d d "
-"d4_8 c# d d c# c# d d "
-"d4_8 c# d d c# c# d d "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_2 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"r_8 d4_8 e_4. d_8 e_4 "
-"r_8 d4_8 e_4. d_8 e_4*5 "
-	);
-	    var v4 = Panola.new(
-"r_2*7 "
-"a4_4 a_8 f#_16 g a_8 f# e e "
-"g4_8 g g e a f# d d "
-"r_2 "
-"g4_8 g g e a f# d d "
-"r_2 "
-"r_2*7 "
-"a4_4 a_8 f#_16 g a_8 f# e e "
-"g4_8 g g e a f# d d "
-"r_2 "
-"g4_8 g g e a f# d d "
-"r_2 "
-"r_2*11 "
-"a4_4 a_8 f#_16 g a_8 f# e e "
-"r_2*5 "
-	    );
-		1.wait;
-	    Ppar([v1.asMidiPbind(p.midi_out),v2.asMidiPbind(p.midi_out),
-		v3.asMidiPbind(p.midi_out),v4.asMidiPbind(p.midi_out)],1).play;
-}
+var midiout;
+var chan = 0;
+var pat = ();
+
+if (MIDIClient.initialized.not) { MIDIClient.init; };
+midiout = MIDIOut.newByName("INTEGRA-7", "INTEGRA-7 MIDI 1"); // change as needed for your digital piano
+
+pat[\score] = Panola("c4_4@pdur[0.3]@ped[0] e g c5 c4@ped[127] e g c5 c4_4@ped[0] e g c5 ");
+pat[\score_withpedalhandling] = Pbindf(
+	pat[\score].asMidiPbind(midiout, chan, include_tempo:false),
+	\handle, Pfunc {
+		| ev |
+		midiout.control(ev[\chan], 64, ev[\ped].asInteger);
+});
+
+pat[\score_withpedalhandling].play(TempoClock(120/60));
 )
+
 ::
