@@ -115,53 +115,6 @@ METHOD:: customProperties
 	
 
 returns:: a Dictionary
-METHOD:: pr_unroll_cleanup
-one of a few internal functions to cleanup the panola input string before starting parsing; this one will clean up whitespaces around brackets, part of the repetitiion syntax.
-
-ARGUMENT:: txt
-a valid panola input string
-
-returns:: a cleaner valid panola input string
-METHOD:: pr_unroll_checksyntax
-internal function to check if there are equally many opening brackets as closing brackets
-
-ARGUMENT:: txt
-a valid panola input string
-
-returns:: a boolean
-METHOD:: pr_unroll_find_inner
-internal function to unroll sections with repeat syntax into a plain panola string
-
-ARGUMENT:: txt
-a valid panola input string
-
-returns:: an valid panola input string with the inner repeated section unrolled
-METHOD:: pr_unroll
-internal function to unroll sections with repeat syntax into a plain panola string
-
-ARGUMENT:: t
-a valid panola input string
-
-returns:: an valid panola input string with all repeated sections unrolled
-METHOD:: pr_read_token
-internal function to return the next token in the panola string
-
-ARGUMENT:: string_so_far
-string with all previously read tokens cut off
-
-ARGUMENT:: token_regexp
-regexp describing next token that is expected
-
-ARGUMENT:: token_default
-default value in case token is not found
-
-ARGUMENT:: semantic_token_action
-function that can act on the extracted token
-
-ARGUMENT:: token_not_found_action
-function to execute if the token is not found
-
-returns:: the extracted token, and the rest of the string that is not yet parsed
 METHOD:: init_notation
 internal function to initialize the parsing infrastructure, lookup tables, etc
 
@@ -196,18 +149,37 @@ ARGUMENT:: tempo_default
 default tempo
 
 returns:: after running this function, the panola string is internally unrolled and parsed
-METHOD:: unroll_loops
-internal function to clean up a panola input string; this function has a misleading name, it currently only removes some spaces and in fact seems to mostly duplicate pr_unroll_cleanup (TODO - investigate)
+METHOD:: pr_extractCustomProperties
+updates this list of properties specified in the panola string. Each property becomes a key in the pbind generated from panola.
 
-ARGUMENT:: notation
-panola input string to be cleaned up
+ARGUMENT:: parsed_notation
+panola parse tree
 
-returns:: a cleaned up string
+returns:: nothing
 METHOD:: noteToMidi
 look up a midi note number for a midi note name
 
 ARGUMENT:: note
 midi note name
+
+returns:: an integer
+METHOD:: pr_resetDefaults
+reset internal default values for unspecified properties
+
+returns:: this instance of Panola
+
+METHOD:: pr_extractNotationNote
+convert a parse tree representing pitch information to panola notation
+
+ARGUMENT:: single_note_parseresult
+parse tree representing a single note (not: chord!)
+
+returns:: a string
+METHOD:: pr_extractMidiNote
+convert a parse tree representing pitch information to a midi note number
+
+ARGUMENT:: single_note_parseresult
+parse tree representing a single note (not: chord!)
 
 returns:: an integer
 METHOD:: notationnotePattern
@@ -242,19 +214,6 @@ METHOD:: pr_animatedPattern
 internal method to return a pattern generating the values of a panola property, also taking into account the defined automations - this is a generic method that is used by practically all other pattern extraction functions
 
 returns:: a pattern (Pseq)
-METHOD:: pr_animatedPatternArgs
-internal generic method to return a pattern generating the argument values to a panola property, taking into account the defined automations
-
-ARGUMENT:: prop_name
-property name for which to generate a pattern (default: vol)
-
-ARGUMENT:: default_type
-default animation type (default: fixed, one of fixed/anim)
-
-ARGUMENT:: default_propval
-default value of a property that was not yet encountered (default: 0.5)
-
-returns:: a pattern (Pseq) generating the property argument values
 METHOD:: volumePattern
 method to return a pattern generating the volume values from a panola string, taking into account the defined automations
 
@@ -281,16 +240,6 @@ ARGUMENT:: default
 default value of the property if not specified explicitly
 
 returns:: a pattern (Pseq) generating the customProperty values
-METHOD:: customPropertyPatternArgs
-method to return a pattern generating a user defined property's argument values from a panola string, taking into account the defined automations
-
-ARGUMENT:: customstring
-name of the property
-
-ARGUMENT:: default
-default value of the property if not specified explicitly
-
-returns:: a pattern (Pseq) generating the customProperty argument values
 METHOD:: asPbind
 method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths
 

@@ -1,0 +1,124 @@
+TITLE:: PanolaParser
+summary:: supercollider pattern notation language parser
+categories:: Midi Utils
+related:: Classes/Panola
+
+DESCRIPTION::
+PanolaParser implements the parser for panola strings. PanolaParser is implemented with the ScParco parsing library.
+
+
+
+CLASSMETHODS::
+
+METHOD:: noteParser
+simple parser that recognizes a single-letter note name (case insensitive)
+
+returns:: the class PanolaParser itself
+
+METHOD:: restParser
+simple parser that recognizes a single-letter rest (case insensitive)
+
+returns:: the class PanolaParser itself
+
+METHOD:: noteModifier
+simple parser that recognizes a note modifier (sharp, flat, double sharp, double flat)
+
+returns:: the class PanolaParser itself
+
+METHOD:: octaveParser
+simple parser that recognizes an integer of at most 2 digits used to specify an octave
+
+returns:: the class PanolaParser itself
+
+METHOD:: durationParser
+simple parser that recognizes a panola duration. Panola duration is an underscore, followed by a float, followed by zero or more dots followed by an optional *multiplier, followed by an optional / divisor
+
+returns:: the class PanolaParser itself
+
+METHOD:: propertynameParser
+simple parser that recognizes a panola propertyname, e.g. amp. Users can use any name they want as long as it starts with a lowercase.
+
+returns:: the class PanolaParser itself
+
+METHOD:: propertiesParser
+simple parser that recognizes panola properties. Properties consist of a name, a type and a value. The name is described by propertynameParser. The type is determined by the kind of brackets used: [0.1] for a static property, {0.1} for an animated properties, and ^0.1^ for a one-shot property. A static property keeps its value until the next occurrence of that same property. An animated property linearly interpolates its value between successive mentionings of the property, and a one-shot property temporarily (i.e. for one note) overwrites an existing property with a new value. One-shot properties can be used to define accents e.g. without otherwise disturbing an ongoing decrescendo.
+
+
+returns:: the class PanolaParser itself
+
+METHOD:: noteAndMode
+simple parser that recognizes the combination of a notename and note modifier, e.g. a# or b--
+
+returns:: the class PanolaParser itself
+
+METHOD:: noteAndModAndOct
+simple parser that recognizes the combination of a notename, and note modifier, and an octave, e.g. e4 or f#3. Note that an octave specifier is optional. If not specified on a note, the previously specified octave is reused.
+
+returns:: the class PanolaParser itself
+
+METHOD:: noteAndModAndOctAndDur
+simple parser that recognizes the combination of a notename, and note modifier, an octave and a duration. Note that an octave specifier is optional. If not specified on a note, the previously specified octave is reused. Similarly, duration is also optional, and many elements of a duration are optional as well. Durations, if specified, must start with an underscore. Then follows a float that indicates a duration, e.g. _16 for a sixteenth note. After that follows an optional number of dots (to extend the duration as in traditional notation). After that follows an optional multiplier, and after that follows an optional divisor. The multipliers and divisors make it possible to specify tuplets, e.g. a duration of _8*2/3 would make for eighth note triplets.
+	
+
+returns:: the class PanolaParser itself
+
+METHOD:: noteAndModAndOctAndDurAndProp
+simple parser that recognizes the combination of a notename, and note modifier, an octave, a duration and a list of properties. Note that an octave specifier is optional. If not specified on a note, the previously specified octave is reused. Similarly, duration is also optional, and many elements of a duration are optional as well. Durations, if specified, must start with an underscore. Then follows a float that indicates a duration, e.g. _16 for a sixteenth note. After that follows an optional number of dots (to extend the duration as in traditional notation). After that follows an optional multiplier, and after that follows an optional divisor. The multipliers and divisors make it possible to specify tuplets, e.g. a duration of _8*2/3 would make for eighth note triplets. Properties have the form @name[value] (static property) or @name{value} (animated property) or @name^value^ (one-shot property).
+	
+
+returns:: the class PanolaParser itself
+
+METHOD:: betweenChordBrackets
+simple parser that recognizes things between chord brackets < >
+
+returns:: the class PanolaParser itself
+
+METHOD:: chordParser
+simple parser that recognizes a chord like <a c e> or <a#_4*2/3@amp{0.5} c e-5>
+
+returns:: the class PanolaParser itself
+
+METHOD:: notelistParser
+simple parser that recognizes a list of notes separated by whitespace
+
+returns:: the class PanolaParser itself
+
+METHOD:: betweenRepeatBrackets
+simple parser that recognizes things between repeat brackets ( ... )*2. These can be nested.
+
+returns:: the class PanolaParser itself
+
+METHOD:: mixedNotelist
+parser that parses a list of either repeatedNoteList (i.e. note list between repeat brackets) or notelist. This is actually the parser that can parse a complete panola notation string.
+
+returns:: the class PanolaParser itself
+
+METHOD:: repeatedNoteList
+parser that parses a list of notes between repeat brackets
+
+returns:: the class PanolaParser itself
+
+METHOD:: new
+creates a new instance of PanolaParser
+
+returns:: the class PanolaParser itself
+
+METHOD:: init
+initializes a newly created PanolaParser
+
+returns:: the class PanolaParser itself
+
+
+INSTANCEMETHODS::
+
+METHOD:: parse
+parses a panola string and returns the parse tree (or an error if parsing failed)
+
+returns:: this instance of PanolaParser
+
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::

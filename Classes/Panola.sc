@@ -226,170 +226,6 @@ Panola {
 		this.init_midilookup();
 	}
 
-	/*
-	[method.pr_unroll_cleanup]
-	description = "one of a few internal functions to cleanup the panola input string before starting parsing; this one will clean up whitespaces around brackets, part of the repetitiion syntax."
-	[method.pr_unroll_cleanup.args]
-	txt = "a valid panola input string"
-	[method.pr_unroll_cleanup.returns]
-	what = "a cleaner valid panola input string"
-	*/
-	pr_unroll_cleanup {
-		|txt|
-		while ({txt.find(" (").notNil}, { txt = txt.replace(" (","("); });
-		while ({txt.find("( ").notNil}, { txt = txt.replace("( ","("); });
-		while ({txt.find(" *").notNil}, { txt = txt.replace(" *","*"); });
-		while ({txt.find("* ").notNil}, { txt = txt.replace("* ","*"); });
-		^txt;
-	}
-	/*
-	[method.pr_unroll_checksyntax]
-	description = "internal function to check if there are equally many opening brackets as closing brackets"
-	[method.pr_unroll_checksyntax.args]
-	txt = "a valid panola input string"
-	[method.pr_unroll_checksyntax.returns]
-	what = "a boolean"
-	*/
-	pr_unroll_checksyntax {
-		| txt |
-		var c1, c2;
-		var copytxt = txt.copy;
-		copytxt = this.pr_unroll_cleanup(copytxt);
-		c1 = (copytxt.findAll(")*").size == copytxt.findAll(")").size);
-		c2 = (copytxt.findAll("(").size == copytxt.findAll(")").size);
-		^(c1 && c2)
-	}
-
-	/*
-	[method.pr_unroll_find_inner]
-	description = "internal function to unroll sections with repeat syntax into a plain panola string"
-	[method.pr_unroll_find_inner.args]
-	txt = "a valid panola input string"
-	[method.pr_unroll_find_inner.returns]
-	what = "an valid panola input string with the inner repeated section unrolled"
-	*/
-	pr_unroll_find_inner {
-		| txt |
-		var unrolldata = [];
-		var stack = [];
-		var depth = 0;
-		var expecting_digits = false;
-		var recorded_digits = "";
-
-		txt.do({
-			| char, idx |
-			if (char == $() {
-				stack = stack.add([idx, depth]);
-				depth = depth + 1;
-			} {
-				if (expecting_digits) {
-					if (char == $*) {
-						/* ignore */
-					}
-					/* else */
-					{
-						if ([$0, $1, $2, $3, $4, $5, $6, $7, $8, $9].includes(char)) {
-							recorded_digits = recorded_digits ++ char.asString;
-						} {
-							unrolldata[unrolldata.size-1] =
-							unrolldata[unrolldata.size-1].add(recorded_digits.asInteger);
-							recorded_digits = "";
-							expecting_digits = false;
-						}
-					};
-				};
-				if (char == $)) {
-					var idxdepth = stack.pop;
-					depth = depth - 1;
-					unrolldata = unrolldata.add( [idxdepth[1], idxdepth[0], idx] );
-					expecting_digits = true;
-				};
-			};
-		});
-		if (expecting_digits) {
-			unrolldata[unrolldata.size-1] = unrolldata[unrolldata.size-1].add(recorded_digits.asInteger);
-		};
-		unrolldata = unrolldata.sort({
-			| el1, el2 |
-			var result = false;
-			if (el1[0] > el2[0]) {
-				result = true; } {
-				if (el1[0] < el2[0]) {
-					result = false } {
-					if (el1[1] < el2[1]) {
-						result = true;
-					} {
-						result = false;
-					};
-				}
-			}
-		});
-		^unrolldata;
-	}
-
-	/*
-	[method.pr_unroll]
-	description = "internal function to unroll sections with repeat syntax into a plain panola string"
-	[method.pr_unroll.args]
-	t = "a valid panola input string"
-	[method.pr_unroll.returns]
-	what = "an valid panola input string with all repeated sections unrolled"
-	*/
-	pr_unroll {
-		| t |
-		var u;
-
-		t = t.replace("@", "\\");
-
-		if (this.pr_unroll_checksyntax(t)) {
-			t = this.pr_unroll_cleanup(t);
-			u = this.pr_unroll_find_inner(t);
-			while ({u != []}, {
-				var first = u[0];
-				var temp;
-				var repeater = first[3].asInteger;
-				var unrolled;
-				temp = t.copyRange(first[1]+1, first[2]-1);
-				unrolled = repeater.collect(temp).join(" ");
-				temp = t.copyRange(0, first[1]-1) ++ " " ++ unrolled ++ t.copyRange(first[2]+first[3].asString.size+2, t.size-1);
-				t = this.pr_unroll_cleanup(temp);
-				u = this.pr_unroll_find_inner(t);
-			});
-		}
-		^t;
-	}
-
-
-	/*
-	[method.pr_read_token]
-	description = "internal function to return the next token in the panola string"
-	[method.pr_read_token.args]
-	string_so_far = "string with all previously read tokens cut off"
-	token_regexp = "regexp describing next token that is expected"
-	token_default= "default value in case token is not found"
-	semantic_token_action = "function that can act on the extracted token"
-	token_not_found_action = "function to execute if the token is not found"
-	[method.pr_read_token.returns]
-	what = "the extracted token, and the rest of the string that is not yet parsed"
-	*/
-	pr_read_token {
-		| string_so_far, token_regexp, token_default="", semantic_token_action=nil, token_not_found_action=nil |
-		var token, aftertoken;
-		token = token_default;
-		aftertoken = string_so_far;
-		if (string_so_far.findRegexpAt(token_regexp,0).notNil) {
-			var analysis = string_so_far.findRegexpAt(token_regexp,0);
-			token = analysis[0];
-			aftertoken = string_so_far.copyRange(analysis[1], string_so_far.size-1);
-			if (token.notNil && semantic_token_action.notNil) {
-				semantic_token_action.(token, aftertoken);
-			};
-			if (token.isNil && token_not_found_action.notNil) {
-				token_not_found_action.(aftertoken);
-			};
-		};
-		^[token, aftertoken];
-	}
 
 	/*
 	[method.init_notation]
@@ -413,9 +249,7 @@ Panola {
 		mult_default, div_default, vol_default, playdur_default,
 		lag_default, tempo_default |
 
-		var noteletters;
-		var accumulatechord = false;
-		var accumulated = [];
+		var parser = PanolaParser.new;
 
 		~cOCTAVE_DEFAULT = octave_default;
 		~cDURATION_DEFAULT = dur_default;
@@ -439,178 +273,34 @@ Panola {
 		gTEMPO_DEFAULT = ~cTEMPO_DEFAULT;
 		gDOTS_DEFAULT = ~cDOTS_DEFAULT;
 
-		if (notation[notation.size-1] != $ ) {
-			notation = notation++" ";
-		};
-		noteletters = [];
-		notation = this.unroll_loops(notation);
-		notation = notation.replace("<", " < ").replace(">", " > ");
-		while ({notation.find(", ").notNil}, {
-			notation = notation.replace(", ", ",");
-		});
-		while ({notation.find(" ,").notNil}, {
-			notation = notation.replace(" ,", ",");
-		});
-
-		notation = this.pr_unroll(notation);
-
-		notation.findRegexp("[^\\ ]+(\\ )+").do({
-			|x|
-			if (x[1].stripWhiteSpace.compare("") != 0) {
-				noteletters = noteletters.add(x[1]);
-			};
-		});
-		noteletters.do({
-			|note|
-			var modifier = ~cMODIFIER_DEFAULT;
-			var octave = ~cOCTAVE_DEFAULT;
-			var duration = ~cDURATION_DEFAULT;
-			var volume = ~cVOLUME_DEFAULT;
-			var playdur = ~cPLAYDUR_DEFAULT;
-			var lag = ~cLAG_DEFAULT;
-			var fullnote = "";
-			var letter = note[0];
-			var afterletter = note.copyRange(1, note.size-1);
-			var modifierregexp = "(#|x|--|-)";
-			var octaveregexp = "(\\d+)";
-			var durationregexp = "(\\d+)";
-			var durationextensionregexp = "(\\.)+";
-			var multiplierregexp = "\\*(\\d+)";
-			var dividerregexp = "/(\\d+)";
-			var propertyregex = "([^{\\[\\\\]+)";
-			var propertytyperegex = "({|\\[)";
-			var propertyvalueregex = "([^}\\]]+)";
-			var aftermodifier = "";
-			var afteroctave = "";
-			var afterduration = "";
-			var afterdurationextension = "";
-			var aftermultiplier = "";
-			var afterdivider = "";
-			var afterproperty = "";
-			var extractedproperty = "";
-			var propertytype = "";
-			var afterextractedproperty="";
-			var propertyvalue = "";
-			var props = [];
-			~multiplier = ~cMULTIPLIER_DEFAULT;
-			~divider = ~cDIVIDER_DEFAULT;
-			~num_of_dots = ~cDOTS_DEFAULT;
-
-			note = note.stripWhiteSpace;
-
-			if (note.compare("<") == 0) {
-				accumulated = [];
-				accumulatechord = true;
-			} {
-				if (note.compare(">") == 0) {
-					accumulatechord = false;
-					parsed_notation = parsed_notation.add(accumulated);
-				} {
-					var parseresult;
-					parseresult = this.pr_read_token(afterletter, modifierregexp, ~cMODIFIER_DEFAULT);
-					modifier = parseresult[0];
-					aftermodifier = parseresult[1];
-
-					parseresult = this.pr_read_token(aftermodifier, octaveregexp, ~cOCTAVE_DEFAULT, { |token, rest| ~cOCTAVE_DEFAULT = token; });
-					octave = parseresult[0];
-					afteroctave = parseresult[1];
-					if (afteroctave[0].notNil && afteroctave[0] == $_) {
-						afteroctave = afteroctave.copyRange(1, afteroctave.size-1);
-					};
-
-					parseresult = this.pr_read_token(afteroctave, durationregexp, ~cDURATION_DEFAULT, { | token, rest |
-						~cDURATION_DEFAULT = token; // update duration default, reset multiplier, divider, num_of_dots
-						~cMULTIPLIER_DEFAULT = "1";
-						~divider = "1";
-						~cDIVIDER_DEFAULT = "1";
-						~multiplier = "1";
-						~cDOTS_DEFAULT = 0;
-						~num_of_dots = 0;
-					});
-					duration = parseresult[0];
-					afterduration = parseresult[1];
-
-					parseresult = this.pr_read_token(afterduration, durationextensionregexp, ~cDOTS_DEFAULT, { | token, rest |
-						~num_of_dots = token.size;
-						~cDOTS_DEFAULT = ~num_of_dots; // update dots default
-					});
-					afterdurationextension = parseresult[1];
-
-					parseresult = this.pr_read_token(afterdurationextension, multiplierregexp, ~cMULTIPLIER_DEFAULT, { | token, rest |
-						~multiplier = token.copyRange(1, token.size-1);
-						~cMULTIPLIER_DEFAULT = ~multiplier;
-					});
-					aftermultiplier = parseresult[1];
-
-					parseresult = this.pr_read_token(aftermultiplier, dividerregexp, ~cDIVIDER_DEFAULT, { | token, rest |
-						~divider = token.copyRange(1, token.size-1);
-						~cDIVIDER_DEFAULT = ~divider;
-					});
-					afterdivider = parseresult[1];
-
-					afterproperty = afterdivider;
-
-					while({afterproperty[0] == $\\}, {
-						var val = "0.5";
-						var prop = "vol";
-
-						~type = "fixed";
-
-						afterproperty = afterproperty.copyRange(1, afterproperty.size-1);
-						parseresult = this.pr_read_token(afterproperty, propertyregex, "", { | token, rest |
-							var parseresult;
-							var val_args;
-							prop = token;
-							parseresult = this.pr_read_token(rest, propertytyperegex, "[", { | token ,rest |
-								if (token[0].asString.compare("{") == 0) {
-									~type = "anim";
-								} {
-									~type = "fixed";
-								};
-							});
-							afterextractedproperty = parseresult[1];
-							val = afterextractedproperty.findRegexpAt(propertyvalueregex, 0);
-							val_args = val[0].split($,);
-							props = props.add([prop, ~type, val_args[0], val_args.drop(1)]);
-							this.customProperties.put(prop, prop.asSymbol);
-							afterproperty = afterextractedproperty.copyRange(val[1]+1, afterextractedproperty.size-1);
-						});
-
-					});
-
-					fullnote = if (letter == $r) {letter} {letter++modifier++octave};
-
-					if (accumulatechord) {
-						accumulated = accumulated.add([fullnote, duration, ~num_of_dots, ~multiplier, ~divider, props]);
-					} {
-						parsed_notation = parsed_notation.add([fullnote, duration, ~num_of_dots, ~multiplier, ~divider, props]);
-					};
-				};
-			};
-		});
-
+		parsed_notation = parser.parse(notation);
+		this.pr_extractCustomProperties(parsed_notation);
+		this.customProperties.debug("custom properties");
 	}
 
 	/*
-	[method.unroll_loops]
-	description = "internal function to clean up a panola input string; this function has a misleading name, it currently only removes some spaces and in fact seems to mostly duplicate pr_unroll_cleanup (TODO - investigate)"
-	[method.unroll_loops.args]
-	notation = "panola input string to be cleaned up"
-	[method.unroll_loops.returns]
-	what = "a cleaned up string"
+	[method.pr_extractCustomProperties]
+	description = "updates this list of properties specified in the panola string. Each property becomes a key in the pbind generated from panola."
+	[method.pr_extractCustomProperties.args]
+	parsed_notation = "panola parse tree"
+	[method.pr_extractCustomProperties.returns]
+	what = "nothing"
 	*/
-	unroll_loops {
-		| notation |
-		while ({notation.find(") ").notNil}, {
-			notation = notation.replace(") ", ")");
+	pr_extractCustomProperties {
+		| parsed_notation |
+		parsed_notation.result.do({
+			| el |
+			var prop_el;
+			var prop_list;
+			prop_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
+			prop_list = prop_el['info']['props'];
+			prop_list.debug("prop_list");
+			prop_list.do({
+				| prop |
+				var name = prop['propertyname'];
+				this.customProperties.put(name, name.asSymbol);
+			});
 		});
-		while ({notation.find(" *").notNil}, {
-			notation = notation.replace(" *", "*");
-		});
-		while ({notation.find("* ").notNil}, {
-			notation = notation.replace("* ", "*");
-		});
-		^notation
 	}
 
 	/*
@@ -677,22 +367,110 @@ Panola {
 	}
 
 	/*
+	[method.pr_resetDefaults]
+	description = "reset internal default values for unspecified properties"
+	*/
+	pr_resetDefaults {
+		~cOCTAVE_DEFAULT = gOCTAVE_DEFAULT;
+		~cDURATION_DEFAULT = gDURATION_DEFAULT;
+		~cMODIFIER_DEFAULT = gMODIFIER_DEFAULT;
+		~cMULTIPLIER_DEFAULT = gMULTIPLIER_DEFAULT;
+		~cDIVIDER_DEFAULT = gDIVIDER_DEFAULT;
+		~cVOLUME_DEFAULT = gVOLUME_DEFAULT;
+		~cPLAYDUR_DEFAULT = gPLAYDUR_DEFAULT;
+		~cLAG_DEFAULT = gLAG_DEFAULT;
+		~cTEMPO_DEFAULT = gTEMPO_DEFAULT;
+		~cDOTS_DEFAULT = gDOTS_DEFAULT;
+	}
+
+	/*
+	[method.pr_extractNotationNote]
+	description = "convert a parse tree representing pitch information to panola notation"
+	[method.pr_extractNotationNote.args]
+	single_note_parseresult = "parse tree representing a single note (not: chord!)"
+	[method.pr_extractNotationNote.returns]
+	what = "a string"
+	*/
+	pr_extractNotationNote {
+		| single_note_parseresult |
+		var notename = single_note_parseresult['info']['note']['pitch']['notename'];
+		var octave = single_note_parseresult['info']['note']['pitch']['octave'];
+		var octaveStr = "";
+		var modifier = single_note_parseresult['info']['note']['pitch']['notemodifier'];
+		var modifierStr = "";
+		var rest = single_note_parseresult['info']['note']['pitch']['type'] == 'rest';
+
+		if (rest) {
+			^"r";
+		} {
+			if (octave == 'previous') {
+				octaveStr = ~cOCTAVE_DEFAULT.asString;
+			} {
+				octaveStr = octave.asString;
+				~cOCTAVE_DEFAULT = octaveStr;
+			};
+
+			if (modifier == 'sharp') {
+				modifierStr = "#";
+			} {
+				if (modifier == 'doublesharp') {
+					modifierStr = "x"
+				} {
+					if (modifier == 'flat') {
+						modifierStr = "-";
+					} {
+						if (modifierStr == 'doubleflat') {
+							modifierStr = "--";
+						} {
+							modifierStr = "";
+						}
+					}
+				}
+			};
+
+			^(notename ++ modifierStr ++ octaveStr);
+		}
+	}
+
+
+	/*
+	[method.pr_extractMidiNote]
+	description = "convert a parse tree representing pitch information to a midi note number"
+	[method.pr_extractMidiNote.args]
+	single_note_parseresult = "parse tree representing a single note (not: chord!)"
+	[method.pr_extractMidiNote.returns]
+	what = "an integer"
+	*/
+	pr_extractMidiNote {
+		| single_note_parseresult |
+		var noteName = this.pr_extractNotationNote(single_note_parseresult);
+		//single_note_parseresult.debug("parse result");
+		//noteName.debug("noteName");
+		^note_to_midi[noteName];
+	}
+
+	/*
 	[method.notationnotePattern]
 	description = "extracts from the current panola string a Pseq pattern containing only the note names"
 	[method.notationnotePattern.returns]
 	what = "a pattern (Pseq)"
 	*/
 	notationnotePattern {
-		var notelist = parsed_notation.collect({
+		var notelist;
+
+		this.pr_resetDefaults;
+
+		notelist = parsed_notation.result.collect({
 			| el |
-			if (el[0].class == Array) { // chord
-				"< "++el.collect({
-					|note|
-					note[0];
-				}).join(" ")++" >";
+			if (el['type'] == 'chord') {
+				"<" ++ el['notes'].collect({
+					|inner_el|
+					this.pr_extractNotationNote(inner_el);
+				}).join(" ") ++ ">";
 			} {
-				el[0];
-			};
+				this.pr_extractNotationNote(el);
+			}
+
 		});
 		^Pseq(notelist, 1);
 	}
@@ -704,18 +482,7 @@ Panola {
 	what = "an integer"
 	*/
 	getNoOfEvents {
-		var notelist = parsed_notation.collect({
-			| el |
-			if (el[0].class == Array) { // chord
-				"< "++el.collect({
-					|note|
-					note[0];
-				}).join(" ")++" >";
-			} {
-				el[0];
-			};
-		});
-		^notelist.size
+		^this.notationnotePattern.asStream.all.size;
 	}
 
 	/*
@@ -725,15 +492,24 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	midinotePattern {
-		var notelist = parsed_notation.collect({
+		var notelist;
+
+		this.pr_resetDefaults;
+
+		notelist = parsed_notation.result.collect({
 			| el |
-			if (el[0].class == Array) {
-				el.collect({
-					| note |
-					note_to_midi[note[0].asString]
-				});
+			if (el['type'] == 'rest') {
+				Rest()
 			} {
-				note_to_midi[el[0].asString];
+				if (el['type'] == 'chord') {
+					el['notes'].collect({
+						| inner_el |
+						this.pr_extractMidiNote(inner_el);
+					});
+				} {
+					//el.postcs;
+					this.pr_extractMidiNote(el);
+				}
 			}
 		});
 		^Pseq(notelist, 1);
@@ -746,19 +522,50 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	notationdurationPattern {
-		var durlist = parsed_notation.collect({
+		var durlist;
+
+		this.pr_resetDefaults;
+
+		durlist = parsed_notation.result.collect({
 			| el |
-			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
-			var duration = dur_el[1].stripWhiteSpace;
-			var num_of_dots = dur_el[2];
-			var multiplier = dur_el[3];
-			var divider = dur_el[4];
 			var dots = "";
 			var str = "";
+			var multiplier = 1;
+			var divider = 1;
+			var num_of_dots = 0;
+			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
+			var duration = dur_el['info']['note']['duration']['dur'];
+			if (duration == 'previous') {
+				duration = ~cDURATION_DEFAULT.asString;
+			} {
+				~cDURATION_DEFAULT = duration;
+				// when a new duration was specified explicitly, reset previously defined dots, multiplier and divider
+				~cDOTS_DEFAULT = 0;
+				~cMULTIPLIER_DEFAULT = 1;
+				~cDIVIDER_DEFAULT = 1;
+			};
+			num_of_dots = dur_el['info']['note']['duration']['durdots'];
+			if (num_of_dots == 'previous') {
+				num_of_dots = ~cDOTS_DEFAULT;
+			}{
+				~cDOTS_DEFAULT = num_of_dots;
+			};
+			multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+			if (multiplier == 'previous') {
+				multiplier = ~cMULTIPLIER_DEFAULT;
+			}{
+				~cMULTIPLIER_DEFAULT = multiplier;
+			};
+			divider = dur_el['info']['note']['duration']['durdivider'];
+			if (divider == 'previous') {
+				divider = ~cDIVIDER_DEFAULT;
+			}{
+				~cDIVIDER_DEFAULT = divider;
+			};
 			num_of_dots.asInteger.do({
 				dots = dots + ".";
 			});
-			str = "(1/"++duration++dots++")*("++multiplier++"/"++divider++")";
+			str = "_"++duration++dots++"*"++multiplier++"/"++divider;
 		});
 		^Pseq(durlist, 1);
 	}
@@ -770,13 +577,46 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	durationPattern {
-		var durlist = parsed_notation.collect({
+		var durlist;
+
+		this.pr_resetDefaults;
+
+		durlist = parsed_notation.result.collect({
 			| el |
-			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
-			var duration = dur_el[1];
-			var num_of_dots = dur_el[2];
-			var multiplier = dur_el[3];
-			var divider = dur_el[4];
+			var dots = "";
+			var str = "";
+			var multiplier = 1;
+			var divider = 1;
+			var num_of_dots = 0;
+			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
+			var duration = dur_el['info']['note']['duration']['dur'];
+			if (duration == 'previous') {
+				duration = ~cDURATION_DEFAULT.asString;
+			} {
+				~cDURATION_DEFAULT = duration;
+				// when a new duration was specified explicitly, reset previously defined dots, multiplier and divider
+				~cDOTS_DEFAULT = 0;
+				~cMULTIPLIER_DEFAULT = 1;
+				~cDIVIDER_DEFAULT = 1;
+			};
+			num_of_dots = dur_el['info']['note']['duration']['durdots'];
+			if (num_of_dots == 'previous') {
+				num_of_dots = ~cDOTS_DEFAULT;
+			}{
+				~cDOTS_DEFAULT = num_of_dots;
+			};
+			multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+			if (multiplier == 'previous') {
+				multiplier = ~cMULTIPLIER_DEFAULT;
+			}{
+				~cMULTIPLIER_DEFAULT = multiplier;
+			};
+			divider = dur_el['info']['note']['duration']['durdivider'];
+			if (divider == 'previous') {
+				divider = ~cDIVIDER_DEFAULT;
+			}{
+				~cDIVIDER_DEFAULT = divider;
+			};
 			(4/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
 		});
 		^Pseq(durlist, 1);
@@ -789,15 +629,9 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	totalDuration {
-		var durlist = parsed_notation.collect({
-			| el |
-			var dur_el = if (el[0].class == Array) { el[0]; } { el; }; // for chords use first note properties for all chord
-			var duration = dur_el[1];
-			var num_of_dots = dur_el[2];
-			var multiplier = dur_el[3];
-			var divider = dur_el[4];
-			(4/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
-		});
+		var durlist;
+		this.pr_resetDefaults;
+		durlist = this.durationPattern.asStream.all;
 		^durlist.sum;
 	}
 
@@ -809,7 +643,7 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	numberOfNotesOrChords {
-		^parsed_notation.size;
+		^parsed_notation.result.size;
 	}
 
 	/*
@@ -819,20 +653,16 @@ Panola {
 	what = "a pattern (Pseq)"
 	*/
 	pr_animatedPattern {
-		| prop_name="vol", default_type = "fixed", default_propval = 0.5 |
+		| prop_name="vol", default_type = \staticproperty, default_propval = 0.5 |
 		var currval = default_propval;
-		var currargs = [];
 		var patlist = [];
-		// extract only properties
-		var proplist = parsed_notation.collect({
+
+		var proplist = parsed_notation.result.collect({
 			| el |
-			if (el[0].class == Array) {
-				el[0][5]; // properties of first note are used for all the chord
-			} {
-				el[5];
-			};
+			// for chords, only look at first element
+			if (el['type'] == 'chord') { el['notes'][0]['info']['props']; } { el['info']['props']; };
 		});
-		// keep only properties + add distance between current and previous volume property spec
+
 		var volprops = [];
 		var distance = 0;
 		var clumped = [];
@@ -842,13 +672,12 @@ Panola {
 			var foundVol = false;
 			propsfornote.do({
 				|singleprop|
-				if (singleprop[0].compare(prop_name) == 0) {
+				if (singleprop['propertyname'].compare(prop_name) == 0) {
 					var copyprop = singleprop.copy();
 					distance = distance + 1;
-					copyprop = copyprop.add(distance);
+					copyprop['distance'] = distance;
 					volprops = volprops.add(copyprop);
-					currval = singleprop[2];
-					currargs = singleprop[3];
+					currval = singleprop['value'];
 					foundVol = true;
 					distance = 0;
 				};
@@ -857,109 +686,31 @@ Panola {
 				distance = distance + 1;
 			};
 		});
-		volprops = volprops.add([prop_name, "fixed", currval, currargs, distance]);
+		volprops = volprops.add( ('propertyname' : prop_name, 'type' : \staticproperty, 'value' : currval, 'distance' : distance));
 		// now turn into patterns
 		clumped = volprops.slide(2, 1).clump(2);
 		clumpedsize = clumped.size;
 		if (clumped.size == 0) {
 			patlist = patlist.add(Pseq([default_propval.asFloat], proplist.size));
 		} {
-			if (clumped[0][0][4].asInteger != 1) {
-				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0][4].asInteger-1));
+			if (clumped[0][0]['distance'].asInteger != 1) {
+				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0]['distance'].asInteger-1));
 			};
 			clumped.do({
 				| pair, idx |
-				var type = pair[0][1];
-				var beginval = pair[0][2].asFloat;
-				var endval = pair[1][2].asFloat;
-				var args = pair[1][3];
-				var length = pair[1][4].asInteger;
+				var type = pair[0]['type'];
+				var beginval = pair[0]['value'].asFloat;
+				var endval = pair[1]['value'].asFloat;
+				var length = pair[1]['distance'].asInteger;
 				var number = length;
 				if (idx == (clumped.size-1)) {
 					number = number + 1;
 				};
-				if (type.compare("anim") == 0) {
+				if (type == \animatedproperty) {
 					patlist = patlist.add(Pseries(beginval, ((endval - beginval)/(length)), number));
 				} {
 					patlist = patlist.add(Pseq([beginval], number));
 				};
-			});
-		}
-
-		^Pseq(patlist, 1);
-	}
-
-	/*
-	[method.pr_animatedPatternArgs]
-	description = "internal generic method to return a pattern generating the argument values to a panola property, taking into account the defined automations"
-	[method.pr_animatedPatternArgs.args]
-	prop_name= "property name for which to generate a pattern (default: vol)"
-	default_type = "default animation type (default: fixed, one of fixed/anim)"
-	default_propval = "default value of a property that was not yet encountered (default: 0.5)"
-	[method.pr_animatedPatternArgs.returns]
-	what = "a pattern (Pseq) generating the property argument values"
-	*/
-	pr_animatedPatternArgs {
-		| prop_name="vol", default_type = "fixed", default_propval = 0.5 |
-		var currval = default_propval;
-		var currargs = [];
-		var patlist = [];
-		// extract only properties
-		var proplist = parsed_notation.collect({
-			| el |
-			if (el[0].class == Array) {
-				el[0][5]; // properties of first note are used for all the chord
-			} {
-				el[5];
-			};
-		});
-		// keep only properties + add distance between current and previous volume property spec
-		var volprops = [];
-		var distance = 0;
-		var clumped = [];
-		var clumpedsize = 0;
-		proplist.do({
-			|propsfornote|
-			var foundVol = false;
-			propsfornote.do({
-				|singleprop|
-				if (singleprop[0].compare(prop_name) == 0) {
-					var copyprop = singleprop.copy();
-					distance = distance + 1;
-					copyprop = copyprop.add(distance);
-					volprops = volprops.add(copyprop);
-					currval = singleprop[2];
-					currargs = singleprop[3];
-					foundVol = true;
-					distance = 0;
-				};
-			});
-			if (foundVol.not) {
-				distance = distance + 1;
-			};
-		});
-		volprops = volprops.add([prop_name, "fixed", currval, currargs, distance]);
-		// now turn into patterns
-		clumped = volprops.slide(2, 1).clump(2);
-		clumpedsize = clumped.size;
-		if (clumped.size == 0) {
-			patlist = patlist.add(Pseq([default_propval.asFloat], proplist.size));
-		} {
-			if (clumped[0][0][4].asInteger != 1) {
-				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0][4].asInteger-1));
-			};
-			clumped.do({
-				| pair, idx |
-				var type = pair[0][1];
-				var beginval = pair[0][2].asFloat;
-				var endval = pair[1][2].asFloat;
-				var args = pair[1][3];
-				var length = pair[1][4].asInteger;
-				var number = length;
-				if (idx == (clumped.size-1)) {
-					number = number + 1;
-				};
-				patlist = patlist.add(Pseq([args], number));
 			});
 		}
 
@@ -973,7 +724,7 @@ Panola {
 	what = "a pattern (Pseq) generating the volume values"
 	*/
 	volumePattern {
-		^this.pr_animatedPattern("vol", "fixed", gVOLUME_DEFAULT);
+		^this.pr_animatedPattern("vol", \staticproperty, gVOLUME_DEFAULT);
 	}
 
 	/*
@@ -983,7 +734,7 @@ Panola {
 	what = "a pattern (Pseq) generating the lag values"
 	*/
 	lagPattern {
-		^this.pr_animatedPattern("lag", "fixed", gLAG_DEFAULT);
+		^this.pr_animatedPattern("lag", \staticproperty, gLAG_DEFAULT);
 	}
 
 	/*
@@ -993,7 +744,7 @@ Panola {
 	what = "a pattern (Pseq) generating the pdur values"
 	*/
 	pdurPattern {
-		^this.pr_animatedPattern("pdur", "fixed", gPLAYDUR_DEFAULT);
+		^this.pr_animatedPattern("pdur", \staticproperty, gPLAYDUR_DEFAULT);
 	}
 
 	/*
@@ -1003,7 +754,7 @@ Panola {
 	what = "a pattern (Pseq) generating the tempo values"
 	*/
 	tempoPattern {
-		^(this.pr_animatedPattern("tempo", "fixed", gTEMPO_DEFAULT)/(60.0));
+		^(this.pr_animatedPattern("tempo", \staticproperty, gTEMPO_DEFAULT)/(60.0));
 	}
 
 	/*
@@ -1017,25 +768,11 @@ Panola {
 	*/
 	customPropertyPattern {
 		| customstring, default=0 |
-		^(this.pr_animatedPattern(customstring, "fixed", default));
+		^(this.pr_animatedPattern(customstring, \staticproperty, default));
 	}
 
-    /*
-	[method.customPropertyPatternArgs]
-	description = "method to return a pattern generating a user defined property's argument values from a panola string, taking into account the defined automations"
-	[method.customPropertyPatternArgs.args]
-	customstring = "name of the property"
-	default = "default value of the property if not specified explicitly"
-	[method.customPropertyPatternArgs.returns]
-	what = "a pattern (Pseq) generating the customProperty argument values"
-	*/
-	customPropertyPatternArgs {
-		| customstring, default=nil |
-		if (default.isNil) { default = []; };
-		^(this.pr_animatedPatternArgs(customstring, "fixed", default));
-	}
 
-    /*
+	/*
 	[method.asPbind]
 	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths"
 	[method.asPbind.args]
@@ -1128,7 +865,7 @@ Panola {
 		};
 	}
 
-	    /*
+	/*
 	[method.asMidiPbind]
 	description = "method to return a pattern suitable for communication to an external synth generating all the properties in the panola string"
 	[method.asMidiPbind.args]
@@ -1153,7 +890,7 @@ Panola {
 	}
 
 
-    /*
+	/*
 	[method.asPmono]
 	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths"
 	[method.asPmono.args]
@@ -1172,7 +909,7 @@ Panola {
 		^result;
 	}
 
-    /*
+	/*
 	[method.asPmonoArtic]
 	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths"
 	[method.asPmonoArtic.args]
