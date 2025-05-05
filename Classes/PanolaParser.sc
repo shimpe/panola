@@ -162,7 +162,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 			};
 		});
 
-		propertynameParser = ScpRegexParser("@[a-zA-z][a-zA-Z0-9]*").map({|result| (\type: \propertyname, \value: result.drop(1))});
+		propertynameParser = ScpRegexParser("[@|\\][a-zA-z][a-zA-Z0-9]*").map({|result| (\type: \propertyname, \value: result.drop(1))});
 		propertiesParser = ScpMany(
 			ScpChoice([
 				ScpSequenceOf([
