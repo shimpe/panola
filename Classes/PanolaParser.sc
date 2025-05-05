@@ -48,7 +48,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
     */
 	classvar <propertiesParser;
 	/*
-	[classmethod.noteAndMode]
+	[classmethod.noteAndMod]
 	description="simple parser that recognizes the combination of a notename and note modifier, e.g. a# or b--"
     */
 	classvar <noteAndMod;
@@ -95,7 +95,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
     */
 	classvar <mixedNotelist;
 	/*
-	[classmethod.repeatedNoteList]
+	[classmethod.repeatedNotelist]
 	description="parser that parses a list of notes between repeat brackets"
     */
 	classvar <repeatedNotelist;
@@ -109,7 +109,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 	}
 
 	/*
-	[classmethod.init]
+	[method.init]
 	description="initializes a newly created PanolaParser"
     */
 	init {

@@ -46,7 +46,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 
 returns:: the class PanolaParser itself
 
-METHOD:: noteAndMode
+METHOD:: noteAndMod
 simple parser that recognizes the combination of a notename and note modifier, e.g. a# or b--
 
 returns:: the class PanolaParser itself
@@ -93,7 +93,7 @@ parser that parses a list of either repeatedNoteList (i.e. note list between rep
 
 returns:: the class PanolaParser itself
 
-METHOD:: repeatedNoteList
+METHOD:: repeatedNotelist
 parser that parses a list of notes between repeat brackets
 
 returns:: the class PanolaParser itself
@@ -103,13 +103,13 @@ creates a new instance of PanolaParser
 
 returns:: the class PanolaParser itself
 
+
+INSTANCEMETHODS::
+
 METHOD:: init
 initializes a newly created PanolaParser
 
-returns:: the class PanolaParser itself
-
-
-INSTANCEMETHODS::
+returns:: this instance of PanolaParser
 
 METHOD:: parse
 parses a panola string and returns the parse tree (or an error if parsing failed)
