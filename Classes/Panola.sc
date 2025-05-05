@@ -274,6 +274,9 @@ Panola {
 		gDOTS_DEFAULT = ~cDOTS_DEFAULT;
 
 		parsed_notation = parser.parse(notation);
+		if (parsed_notation.isError) {
+			("An error occurred while trying to parse panola " ++ parsed_notation.errorMsg).error;
+		};
 		this.pr_extractCustomProperties(parsed_notation);
 		//this.customProperties.debug("custom properties");
 	}
@@ -421,7 +424,7 @@ Panola {
 					if (modifier == 'flat') {
 						modifierStr = "-";
 					} {
-						if (modifierStr == 'doubleflat') {
+						if (modifier == 'doubleflat') {
 							modifierStr = "--";
 						} {
 							modifierStr = "";
