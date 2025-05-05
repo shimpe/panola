@@ -535,37 +535,54 @@ Panola {
 			| el |
 			var dots = "";
 			var str = "";
-			var multiplier = 1;
-			var divider = 1;
-			var num_of_dots = 0;
+			var multiplier = multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+			var divider = divider = dur_el['info']['note']['duration']['durdivider'];
+			var num_of_dots = dur_el['info']['note']['duration']['durdots'];
 			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var duration = dur_el['info']['note']['duration']['dur'];
 			if (duration == 'previous') {
 				duration = ~cDURATION_DEFAULT.asString;
 			} {
 				~cDURATION_DEFAULT = duration;
+				if (num_of_dots == \previous) {
+					num_of_dots = 0;
+					~cDOTS_DEFAULT = 0;
+				};
+				if (multiplier == \previous) {
+					multiplier = 1;
+					~cMULTIPLIER_DEFAULT = 1;
+				};
+				if (divider == \previous) {
+					divider = 1;
+					~cDIVIDER_DEFAULT = 1;
+				};
 				// when a new duration was specified explicitly, reset previously defined dots, multiplier and divider
-				~cDOTS_DEFAULT = 0;
-				~cMULTIPLIER_DEFAULT = 1;
-				~cDIVIDER_DEFAULT = 1;
 			};
-			num_of_dots = dur_el['info']['note']['duration']['durdots'];
+
 			if (num_of_dots == 'previous') {
 				num_of_dots = ~cDOTS_DEFAULT;
 			}{
 				~cDOTS_DEFAULT = num_of_dots;
 			};
-			multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+
 			if (multiplier == 'previous') {
 				multiplier = ~cMULTIPLIER_DEFAULT;
 			}{
 				~cMULTIPLIER_DEFAULT = multiplier;
+				if (divider == \previous) {
+					divider = 1;
+					~cDIVIDER_DEFAULT = 1;
+				};
 			};
-			divider = dur_el['info']['note']['duration']['durdivider'];
+
 			if (divider == 'previous') {
 				divider = ~cDIVIDER_DEFAULT;
 			}{
 				~cDIVIDER_DEFAULT = divider;
+				if (multiplier == \previous) {
+					multiplier = 1;
+					~cMULTIPLIER_DEFAULT = 1;
+				};
 			};
 			num_of_dots.asInteger.do({
 				dots = dots + ".";
@@ -590,37 +607,54 @@ Panola {
 			| el |
 			var dots = "";
 			var str = "";
-			var multiplier = 1;
-			var divider = 1;
-			var num_of_dots = 0;
+			var multiplier = multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+			var divider = divider = dur_el['info']['note']['duration']['durdivider'];
+			var num_of_dots = dur_el['info']['note']['duration']['durdots'];
 			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var duration = dur_el['info']['note']['duration']['dur'];
 			if (duration == 'previous') {
 				duration = ~cDURATION_DEFAULT.asString;
 			} {
 				~cDURATION_DEFAULT = duration;
+				if (num_of_dots == \previous) {
+					num_of_dots = 0;
+					~cDOTS_DEFAULT = 0;
+				};
+				if (multiplier == \previous) {
+					multiplier = 1;
+					~cMULTIPLIER_DEFAULT = 1;
+				};
+				if (divider == \previous) {
+					divider = 1;
+					~cDIVIDER_DEFAULT = 1;
+				};
 				// when a new duration was specified explicitly, reset previously defined dots, multiplier and divider
-				~cDOTS_DEFAULT = 0;
-				~cMULTIPLIER_DEFAULT = 1;
-				~cDIVIDER_DEFAULT = 1;
 			};
-			num_of_dots = dur_el['info']['note']['duration']['durdots'];
+
 			if (num_of_dots == 'previous') {
 				num_of_dots = ~cDOTS_DEFAULT;
 			}{
 				~cDOTS_DEFAULT = num_of_dots;
 			};
-			multiplier = dur_el['info']['note']['duration']['durmultiplier'];
+
 			if (multiplier == 'previous') {
 				multiplier = ~cMULTIPLIER_DEFAULT;
 			}{
 				~cMULTIPLIER_DEFAULT = multiplier;
+				if (divider == \previous) {
+					divider = 1;
+					~cDIVIDER_DEFAULT = 1;
+				};
 			};
-			divider = dur_el['info']['note']['duration']['durdivider'];
+
 			if (divider == 'previous') {
 				divider = ~cDIVIDER_DEFAULT;
 			}{
 				~cDIVIDER_DEFAULT = divider;
+				if (multiplier == \previous) {
+					multiplier = 1;
+					~cMULTIPLIER_DEFAULT = 1;
+				};
 			};
 			(4/duration.asFloat)*(2-(1/(2.pow(num_of_dots.asInteger))))*(multiplier.asFloat/divider.asFloat);
 		});
@@ -652,7 +686,7 @@ Panola {
 	}
 
 
-    /*
+	/*
 	[method.pr_decorateWithOneShotPattern]
 	description = "internal method that takes a pattern and wraps it in a Phijack if needed to realize the one-shot annotations"
 	[method.pr_decorateWithOneShotPattern.args]
