@@ -124,7 +124,7 @@ NotationNoteTester : UnitTest {
         var result = 4.collect({
             q.next;
         });
-        this.assertEquals(result, [ "< c4 e4 >", "< c4 e4 g4 >", "< d4 f4 a4 >", nil]);
+        this.assertEquals(result, [ "<c4 e4>", "<c4 e4 g4>", "<d4 f4 a4>", nil]);
     }
 }
 
