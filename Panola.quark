@@ -3,7 +3,7 @@
   summary: "Quark to simplify music composition with patterns",
   version: "0.2.0",
   schelp: "Panola.schelp",
-  dependencies: ["https://github.com/shimpe/scparco@tags/0.0.5"],
+  dependencies: ["https://github.com/shimpe/scparco@tags/0.0.5", "https://github.com/shimpe/phijack/releases/tag/0.0.1"],
   license: "GPL",
   copyright: "Stefaan Himpe, 2025"
 )

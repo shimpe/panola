@@ -275,7 +275,7 @@ Panola {
 
 		parsed_notation = parser.parse(notation);
 		this.pr_extractCustomProperties(parsed_notation);
-		this.customProperties.debug("custom properties");
+		//this.customProperties.debug("custom properties");
 	}
 
 	/*
@@ -294,11 +294,13 @@ Panola {
 			var prop_list;
 			prop_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			prop_list = prop_el['info']['props'];
-			prop_list.debug("prop_list");
+			//prop_list.debug("prop_list");
 			prop_list.do({
 				| prop |
 				var name = prop['propertyname'];
-				this.customProperties.put(name, name.asSymbol);
+				if (prop['type'] != \oneshotproperty) {
+					this.customProperties.put(name, name.asSymbol);
+				}
 			});
 		});
 	}
@@ -307,7 +309,7 @@ Panola {
 	[method.init_midilookup]
 	description = "internal function to initialize the note_to_midi lookup table"
 	[method.init_midilookup.returns]
-	what = "a Dictionary from notename to midinote number (and an extra entry "r" for a rest)"
+	what = "a Dictionary from notename to midinote number (and an extra entry 'r' for a rest)"
 	*/
 	init_midilookup {
 		var notenum = 0;
@@ -646,6 +648,50 @@ Panola {
 		^parsed_notation.result.size;
 	}
 
+
+    /*
+	[method.pr_decorateWithOneShotPattern]
+	description = "internal method that takes a pattern and wraps it in a Phijack if needed to realize the one-shot annotations"
+	[method.pr_decorateWithOneShotPattern.args]
+    prop_name = "a property name"
+    pattern = "a value pattern"
+	[method.pr_decorateWithOneShotPattern.returns]
+	what = "a new value pattern that hijacks the original pattern to perform the one-shot annotations"
+    */
+	pr_decorateWithOneShotPattern {
+		| prop_name, pattern |
+		// first find out if any one-shot annotations are needed
+		var needed = false;
+		var proplist = parsed_notation.result.collect({
+			| el |
+			// for chords, only look at first element
+			if (el['type'] == 'chord') { el['notes'][0]['info']['props']; } { el['info']['props']; };
+		});
+		var oneshot_indices = Set.new;
+		var hijack_values = [];
+		proplist.do({
+			| propsfornote, note_index |
+			propsfornote.do({
+				| singleprop |
+				if (singleprop['propertyname'].compare(prop_name) == 0 && singleprop['type'] == \oneshotproperty){
+					needed = true;
+					oneshot_indices = oneshot_indices.add(note_index);
+					hijack_values = hijack_values.add(singleprop['value']);
+				}
+			});
+		});
+
+		if (needed.not) {
+			^pattern; // no decoration needed
+		} {
+			var predicate = {
+				| value, index |
+				oneshot_indices.includes(index);
+			};
+			^Phijack(predicate, pattern, Pseq(hijack_values, 1));
+		}
+	}
+
 	/*
 	[method.pr_animatedPattern]
 	description = "internal method to return a pattern generating the values of a panola property, also taking into account the defined automations - this is a generic method that is used by practically all other pattern extraction functions"
@@ -672,7 +718,8 @@ Panola {
 			var foundVol = false;
 			propsfornote.do({
 				|singleprop|
-				if (singleprop['propertyname'].compare(prop_name) == 0) {
+				// note: oneshot properties are to be handled separately, filter them out for now
+				if ((singleprop['propertyname'].compare(prop_name) == 0) && (singleprop['type'] != \oneshotproperty)) {
 					var copyprop = singleprop.copy();
 					distance = distance + 1;
 					copyprop['distance'] = distance;
@@ -714,7 +761,7 @@ Panola {
 			});
 		}
 
-		^Pseq(patlist, 1);
+		^this.pr_decorateWithOneShotPattern(prop_name, Pseq(patlist, 1));
 	}
 
 	/*

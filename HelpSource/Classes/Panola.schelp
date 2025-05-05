@@ -156,6 +156,10 @@ ARGUMENT:: parsed_notation
 panola parse tree
 
 returns:: nothing
+METHOD:: init_midilookup
+internal function to initialize the note_to_midi lookup table
+
+returns:: a Dictionary from notename to midinote number (and an extra entry 'r' for a rest)
 METHOD:: noteToMidi
 look up a midi note number for a midi note name
 
@@ -210,6 +214,16 @@ METHOD:: numberOfNotesOrChords
 number of notes/chords in a panola string
 
 returns:: a pattern (Pseq)
+METHOD:: pr_decorateWithOneShotPattern
+internal method that takes a pattern and wraps it in a Phijack if needed to realize the one-shot annotations
+
+ARGUMENT:: prop_name
+a property name
+
+ARGUMENT:: pattern
+a value pattern
+
+returns:: a new value pattern that hijacks the original pattern to perform the one-shot annotations
 METHOD:: pr_animatedPattern
 internal method to return a pattern generating the values of a panola property, also taking into account the defined automations - this is a generic method that is used by practically all other pattern extraction functions
 
