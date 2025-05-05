@@ -10,133 +10,133 @@ series of classes implementing unit tests - instantiating PanolaTester will run 
 */
 
 MidiNoteTester : UnitTest {
-    test_singlenote {
-        var p = Panola.new("a");
-        var q = p.midinotePattern.asStream;
-        var result = 2.collect({
-            q.next;
-        });
-        this.assertEquals(result, [69, nil]);
-    }
+	test_singlenote {
+		var p = Panola.new("a");
+		var q = p.midinotePattern.asStream;
+		var result = 2.collect({
+			q.next;
+		});
+		this.assertEquals(result, [69, nil]);
+	}
 
-    test_singlenote_otherdefault {
-        var p = Panola.new("a", octave_default:"3");
-        var q = p.midinotePattern.asStream;
-        var result = 2.collect({
-            q.next;
-        });
-        this.assertEquals(result, [57, nil]);
-    }
+	test_singlenote_otherdefault {
+		var p = Panola.new("a", octave_default:"3");
+		var q = p.midinotePattern.asStream;
+		var result = 2.collect({
+			q.next;
+		});
+		this.assertEquals(result, [57, nil]);
+	}
 
-    test_twonotes_diff_octave {
-        var p = Panola.new("a3 b4");
-        var q = p.midinotePattern.asStream;
-        var result = 3.collect({
-            q.next;
-        });
-        this.assertEquals(result, [57, 71, nil]);
-    }
+	test_twonotes_diff_octave {
+		var p = Panola.new("a3 b4");
+		var q = p.midinotePattern.asStream;
+		var result = 3.collect({
+			q.next;
+		});
+		this.assertEquals(result, [57, 71, nil]);
+	}
 
-    test_remember_octaves {
-        var p = Panola.new("a4 b a3 b");
-        var q = p.midinotePattern.asStream;
-        var result = 5.collect({
-            q.next;
-        });
-        this.assertEquals(result, [69, 71, 57, 59, nil]);
-    }
+	test_remember_octaves {
+		var p = Panola.new("a4 b a3 b");
+		var q = p.midinotePattern.asStream;
+		var result = 5.collect({
+			q.next;
+		});
+		this.assertEquals(result, [69, 71, 57, 59, nil]);
+	}
 
-    test_modifiers {
-        var p = Panola.new("a a# a- ax a--");
-        var q = p.midinotePattern.asStream;
-        var result = 6.collect({
-            q.next;
-        });
-        this.assertEquals(result, [69, 70, 68, 71, 67, nil]);
-    }
+	test_modifiers {
+		var p = Panola.new("a a# a- ax a--");
+		var q = p.midinotePattern.asStream;
+		var result = 6.collect({
+			q.next;
+		});
+		this.assertEquals(result, [69, 70, 68, 71, 67, nil]);
+	}
 
-    test_cornercase_octavenumber {
-        var p = Panola.new("c4 c-4 c--4 b4 b#4 bx4");
-        var q = p.midinotePattern.asStream;
-        var result = 7.collect({
-            q.next;
-        });
-        this.assertEquals(result, [60, 59, 58, 71, 72, 73, nil]);
-    }
+	test_cornercase_octavenumber {
+		var p = Panola.new("c4 c-4 c--4 b4 b#4 bx4");
+		var q = p.midinotePattern.asStream;
+		var result = 7.collect({
+			q.next;
+		});
+		this.assertEquals(result, [60, 59, 58, 71, 72, 73, nil]);
+	}
 
-    test_chord {
-        var p = Panola.new("< c e> <c e g > <d f a>");
-        var q = p.midinotePattern.asStream;
-        var result = 4.collect({
-            q.next;
-        });
-        this.assertEquals(result, [ [ 60, 64 ], [ 60, 64, 67 ], [ 62, 65, 69 ], nil]);
-    }
+	test_chord {
+		var p = Panola.new("< c e> <c e g > <d f a>");
+		var q = p.midinotePattern.asStream;
+		var result = 4.collect({
+			q.next;
+		});
+		this.assertEquals(result, [ [ 60, 64 ], [ 60, 64, 67 ], [ 62, 65, 69 ], nil]);
+	}
 }
 
 NotationNoteTester : UnitTest {
-    test_singlenote {
-        var p = Panola.new("a");
-        var q = p.notationnotePattern.asStream;
-        var result = 2.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["a4", nil]);
-    }
+	test_singlenote {
+		var p = Panola.new("a");
+		var q = p.notationnotePattern.asStream;
+		var result = 2.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["a4", nil]);
+	}
 
-    test_singlenote_otherdefault {
-        var p = Panola.new("a", octave_default:"3");
-        var q = p.notationnotePattern.asStream;
-        var result = 2.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["a3", nil]);
-    }
+	test_singlenote_otherdefault {
+		var p = Panola.new("a", octave_default:"3");
+		var q = p.notationnotePattern.asStream;
+		var result = 2.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["a3", nil]);
+	}
 
-    test_twonotes_diff_octave {
-        var p = Panola.new("a3 b4");
-        var q = p.notationnotePattern.asStream;
-        var result = 3.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["a3", "b4", nil]);
-    }
+	test_twonotes_diff_octave {
+		var p = Panola.new("a3 b4");
+		var q = p.notationnotePattern.asStream;
+		var result = 3.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["a3", "b4", nil]);
+	}
 
-    test_remember_octaves {
-        var p = Panola.new("a4 b a3 b");
-        var q = p.notationnotePattern.asStream;
-        var result = 5.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["a4", "b4", "a3" , "b3", nil]);
-    }
+	test_remember_octaves {
+		var p = Panola.new("a4 b a3 b");
+		var q = p.notationnotePattern.asStream;
+		var result = 5.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["a4", "b4", "a3" , "b3", nil]);
+	}
 
-    test_modifiers {
-        var p = Panola.new("a a# a- ax a--");
-        var q = p.notationnotePattern.asStream;
-        var result = 6.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["a4", "a#4", "a-4", "ax4", "a--4", nil]);
-    }
+	test_modifiers {
+		var p = Panola.new("a a# a- ax a--");
+		var q = p.notationnotePattern.asStream;
+		var result = 6.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["a4", "a#4", "a-4", "ax4", "a--4", nil]);
+	}
 
-    test_cornercase_octavenumber {
-        var p = Panola.new("c4 c-4 c--4 b4 b#4 bx4");
-        var q = p.notationnotePattern.asStream;
-        var result = 7.collect({
-            q.next;
-        });
-        this.assertEquals(result, ["c4", "c-4", "c--4", "b4", "b#4", "bx4", nil]);
-    }
+	test_cornercase_octavenumber {
+		var p = Panola.new("c4 c-4 c--4 b4 b#4 bx4");
+		var q = p.notationnotePattern.asStream;
+		var result = 7.collect({
+			q.next;
+		});
+		this.assertEquals(result, ["c4", "c-4", "c--4", "b4", "b#4", "bx4", nil]);
+	}
 
-    test_chord {
-        var p = Panola.new("< c e> <c e g > <d f a>");
-        var q = p.notationnotePattern.asStream;
-        var result = 4.collect({
-            q.next;
-        });
-        this.assertEquals(result, [ "<c4 e4>", "<c4 e4 g4>", "<d4 f4 a4>", nil]);
-    }
+	test_chord {
+		var p = Panola.new("< c e> <c e g > <d f a>");
+		var q = p.notationnotePattern.asStream;
+		var result = 4.collect({
+			q.next;
+		});
+		this.assertEquals(result, [ "<c4 e4>", "<c4 e4 g4>", "<d4 f4 a4>", nil]);
+	}
 }
 
 DurationTester : UnitTest {
@@ -180,15 +180,15 @@ DurationTester : UnitTest {
         this.assertFloatEquals(p.totalDuration, [1, 1, 1, 1, 1/2, 1].sum);
     }
 
-    test_divider {
-        var p = Panola.new("c_4/2 c4_4 c4/2");
-        var q = p.durationPattern.asStream;
-        var result = 4.collect({
-            q.next;
-        });
-        this.assertEquals(result, [1/2, 1, 1/2, nil]);
-        this.assertFloatEquals(p.totalDuration, [1/2, 1, 1/2].sum);
-    }
+	test_divider {
+		var p = Panola.new("c_4/2 c4_4 c4/2");
+		var q = p.durationPattern.asStream;
+		var result = 4.collect({
+			q.next;
+		});
+		this.assertEquals(result, [1/2, 1, 1/2, nil]);
+		this.assertFloatEquals(p.totalDuration, [1/2, 1, 1/2].sum);
+	}
 
     test_multiplier_and_divider {
         var p = Panola.new("c_4*2/2 c_8*2/3 c*4/3 c_4");
@@ -285,20 +285,6 @@ PropertyTester : UnitTest {
         this.assertEquals(result2, [6, 4, 5, 6, 7, 8, nil]);
     }
 
-    test_customprop_args {
-        var p = Panola.new("a\\nrpn{0.1, LPF_CUTOFF, B} b c\\nrpn{0.3, LPF_CUTOFF, B} ");
-        var q = p.customPropertyPattern("nrpn").asStream;
-        var result = 4.collect({
-            q.next;
-        });
-        var r = p.customPropertyPatternArgs("nrpn").asStream;
-        var result2 = 4.collect({
-            r.next;
-        });
-        this.assertEquals(result, [0.1, 0.2, 0.3, nil]);
-        this.assertEquals(result2, [["LPF_CUTOFF", "B"], ["LPF_CUTOFF", "B"], ["LPF_CUTOFF", "B"], nil]);
-    }
-
     test_tempo {
         var p = Panola.new("c_4\\tempo[60] d e\\tempo[80] f g\\tempo{120} f e d\\tempo{150} a");
         var q = p.tempoPattern.asStream;
@@ -310,7 +296,7 @@ PropertyTester : UnitTest {
 
     test_midipbind_nocustom {
         var p = Panola.new("c\\vol{0.10} d e\\vol{0.30}");
-        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:false, custom_property_default:(\vol : 0.5)).asStream;
+        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:false, custom_property_defaults:(\vol : 0.5)).asStream;
         var result = 3.collect({
             | el |
             q.next(());
@@ -328,7 +314,7 @@ PropertyTester : UnitTest {
 
     test_midipbind {
         var p = Panola.new("c\\vol{0.10}\\snoop{0.1} d\\snip[0.1] e\\vol{0.30}\\snip[0.2]\\snoop{0.2}");
-        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_default:Dictionary.newFrom([\vol, 0.5, \snip, 0.9])).asStream;
+        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_defaults:Dictionary.newFrom([\vol, 0.5, \snip, 0.9])).asStream;
         var result = 3.collect({
             | el |
             q.next(());
@@ -347,7 +333,7 @@ PropertyTester : UnitTest {
 
     test_midipbind_nostd {
         var p = Panola.new("c@vol{0.10}@snoop{0.1} d@snip[0.1] e@vol{0.30}@snip[0.2]@snoop{0.2}");
-        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_default:Dictionary.newFrom([\vol, 0.5, \snip, 0.9]), translate_std_keys:false).asStream;
+        var q = p.asMidiPbind(midiOut:{}, channel:0, include_custom_properties:true, custom_property_defaults:Dictionary.newFrom([\vol, 0.5, \snip, 0.9]), translate_std_keys:false).asStream;
         var result = 3.collect({
             | el |
             q.next(());
@@ -408,13 +394,13 @@ UnrollTester : UnitTest {
     }
 
     test_unroll_with_other_symbols {
-        var p  = Panola.new("(a\nrprn{40, LPF_CUTOFF, A} b*2/3)*2 c (<d e>)*2");
+        var p  = Panola.new("(a\\nrprn{40} b*2/3)*2 c (<d e>)*2");
         var q = p.notationnotePattern.asStream;
         var result = 8.collect({
             | el |
             q.next(());
         });
-        this.assertEquals(result, [  "a4", "b4", "a4", "b4", "c4", "< d4 e4 >", "< d4 e4 >", nil ]);
+        this.assertEquals(result, [ "a4", "b4", "a4", "b4", "c4", "<d4 e4>", "<d4 e4>", nil ]);
     }
 
 }

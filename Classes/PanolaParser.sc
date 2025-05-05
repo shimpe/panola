@@ -36,6 +36,16 @@ PanolaParser {
     */
 	classvar <durationParser;
 	/*
+	[classmethod.durationParser2]
+	description="simple parser that recognizes a panola with only multiplier and optional divisor. "
+    */
+	classvar <durationParser2;
+	/*
+	[classmethod.durationParser3]
+	description="simple parser that recognizes a panola with only divisor."
+    */
+	classvar <durationParser3;
+	/*
 	[classmethod.propertynameParser]
 	description="simple parser that recognizes a panola propertyname, e.g. amp. Users can use any name they want as long as it starts with a lowercase."
     */
@@ -125,12 +135,13 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 			ScpRegexParser("\\d\\d?").map({|result| (\type: \octave, \value: result.asInteger )})
 		).map({|result| result ? (\type: \octave, \value: \previous) }); // map missing octave to \previous
 
-		durationParser = ScpOptional(ScpSequenceOf([
-			ScpStrParser("_"),
-			ScpParserFactory.makeFloatParser.map({|result| (\type: \duration, \value: result)}),
-			ScpMany(ScpStrParser(".")).map({|result| (\type: \durdots, \value: result.size)}),
-			ScpOptional(ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durmultiplier, \value: result[1])})),
-			ScpOptional(ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}))
+		durationParser = ScpOptional(
+			ScpSequenceOf([
+				ScpStrParser("_"),
+				ScpParserFactory.makeFloatParser.map({|result| (\type: \duration, \value: result)}),
+				ScpMany(ScpStrParser(".")).map({|result| (\type: \durdots, \value: result.size)}),
+				ScpOptional(ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durmultiplier, \value: result[1])})),
+				ScpOptional(ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}))
 		])).map({
 			|result|
 			if (result.isNil) {
@@ -157,6 +168,57 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 							dur[\durdivider] = result[4][\value];
 						}
 					};
+				};
+				dur;
+			};
+		});
+
+		durationParser2 = ScpSequenceOf([
+			ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durmultiplier, \value: result[1])}),
+			ScpOptional(ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}))
+		]).map({
+			|result|
+			if (result.isNil) {
+				(\dur : \previous, \durmultiplier: \previous, \durdivider: \previous, \durdots: \previous);
+			} {
+				var dur = ( \dur : \previous, \durdots : \previous);
+				// treat divider and multiplier as one: specifying only one of the two affects the other one
+				if (result[0].isNil && result[1].isNil) {
+					dur[\durmultiplier] = \previous;
+					dur[\durdivider] = \previous;
+				} {
+					if (result[0].isNil) {
+						// only dividider specified ->reset multplier to 1
+						dur[\durmultiplier] = 1;
+						dur[\durdivider] = result[1][\value];
+					} {
+						if (result[1].isNil) {
+							// only multiplier specified -> reset divider to 1
+							dur[\durmultiplier] = result[0][\value];
+							dur[\durdivider] = 1;
+						} {
+							// everything specified
+							dur[\durmultiplier] = result[0][\value];
+							dur[\durdivider] = result[1][\value];
+						}
+					};
+				};
+				dur;
+			};
+		});
+
+		durationParser3 = ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}).map({
+			|result|
+			if (result.isNil) {
+				(\dur : \previous, \durmultiplier: \previous, \durdivider: \previous, \durdots: \previous);
+			} {
+				var dur = ( \dur : \previous, \durdots : \previous);
+				if (result.isNil) {
+					dur[\durmultiplier] = \previous;
+					dur[\durdivider] = \previous;
+				} {
+					dur[\durmultiplier] = 1;
+					dur[\durdivider] = result[\value];
 				};
 				dur;
 			};
@@ -202,7 +264,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 
 		noteAndModAndOctAndDur = ScpSequenceOf([
 			noteAndModAndOct,
-			durationParser
+			ScpChoice([durationParser3, durationParser2, durationParser]),
 		]).map({|result| (\pitch : result[0], \duration: result[1] ) });
 
 		noteAndModAndOctAndDurAndProp = ScpSequenceOf([
@@ -260,8 +322,8 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 	description="parses a panola string and returns the parse tree (or an error if parsing failed)"
     */
 	parse {
-		| notation |
-		^PanolaParser.mixedNotelist.run(notation);
+		| notation, trace=false |
+		^PanolaParser.mixedNotelist.run(notation, trace:trace);
 	}
 
 }

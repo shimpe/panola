@@ -535,10 +535,10 @@ Panola {
 			| el |
 			var dots = "";
 			var str = "";
+			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var multiplier = multiplier = dur_el['info']['note']['duration']['durmultiplier'];
 			var divider = divider = dur_el['info']['note']['duration']['durdivider'];
 			var num_of_dots = dur_el['info']['note']['duration']['durdots'];
-			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var duration = dur_el['info']['note']['duration']['dur'];
 			if (duration == 'previous') {
 				duration = ~cDURATION_DEFAULT.asString;
@@ -607,13 +607,13 @@ Panola {
 			| el |
 			var dots = "";
 			var str = "";
+			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var multiplier = multiplier = dur_el['info']['note']['duration']['durmultiplier'];
 			var divider = divider = dur_el['info']['note']['duration']['durdivider'];
 			var num_of_dots = dur_el['info']['note']['duration']['durdots'];
-			var dur_el = if (el['type'] == 'chord') { el['notes'][0]; } { el; };
 			var duration = dur_el['info']['note']['duration']['dur'];
 			if (duration == 'previous') {
-				duration = ~cDURATION_DEFAULT.asString;
+				duration = ~cDURATION_DEFAULT;
 			} {
 				~cDURATION_DEFAULT = duration;
 				if (num_of_dots == \previous) {
@@ -641,6 +641,7 @@ Panola {
 				multiplier = ~cMULTIPLIER_DEFAULT;
 			}{
 				~cMULTIPLIER_DEFAULT = multiplier;
+				("multiplier (2) became" + divider);
 				if (divider == \previous) {
 					divider = 1;
 					~cDIVIDER_DEFAULT = 1;
@@ -651,6 +652,7 @@ Panola {
 				divider = ~cDIVIDER_DEFAULT;
 			}{
 				~cDIVIDER_DEFAULT = divider;
+				("divider (3) became" + divider);
 				if (multiplier == \previous) {
 					multiplier = 1;
 					~cMULTIPLIER_DEFAULT = 1;
