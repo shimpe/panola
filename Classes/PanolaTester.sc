@@ -1,3 +1,14 @@
+/*
+[general]
+title = "PanolaTester"
+summary = "series of classes implementing unit tests - instantiating PanolaTester will run all the tests"
+categories = "Midi Utils"
+related = "Classes/Panola"
+description = '''
+series of classes implementing unit tests - instantiating PanolaTester will run all the tests
+'''
+*/
+
 MidiNoteTester : UnitTest {
     test_singlenote {
         var p = Panola.new("a");

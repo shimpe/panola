@@ -1,10 +1,11 @@
-TITLE:: FIXME (no title specified)
-summary:: FIXME (no summary specified)
-categories:: FIXME (no categories specified)
-related:: FIXME (no related classes specified)
+TITLE:: PanolaTester
+summary:: series of classes implementing unit tests - instantiating PanolaTester will run all the tests
+categories:: Midi Utils
+related:: Classes/Panola
 
 DESCRIPTION::
-(FIXME no long description specified)
+series of classes implementing unit tests - instantiating PanolaTester will run all the tests
+
 
 
 
