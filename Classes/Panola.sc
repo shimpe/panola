@@ -275,7 +275,7 @@ Panola {
 
 		parsed_notation = parser.parse(notation);
 		if (parsed_notation.isError) {
-			("An error occurred while trying to parse panola " ++ parsed_notation.errorMsg).error;
+			("An error occurred while trying to parse panola:\n" ++ parsed_notation.errorMsg).error;
 		};
 		this.pr_extractCustomProperties(parsed_notation);
 		//this.customProperties.debug("custom properties");
