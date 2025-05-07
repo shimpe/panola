@@ -417,6 +417,38 @@ CounterTester : UnitTest {
     }
 }
 
+AnimationTester : UnitTest {
+	test_static_properties {
+		var p = Panola.new("a@vol[0.1] b c b@vol[0.2] a");
+		var vols = p.customPropertyPattern("vol", 0.5).asStream.all;
+		this.assertArrayFloatEquals(vols, [0.1, 0.1, 0.1, 0.2, 0.2]);
+	}
+
+	test_animated_properties {
+		var p = Panola.new("a@vol{0.1} b c b@vol{0.4} a");
+		var vols = p.customPropertyPattern("vol", 0.5).asStream.all;
+		this.assertArrayFloatEquals(vols, [0.1, 0.2, 0.3, 0.4, 0.4]);
+	}
+
+	test_oneshot_properties_i {
+		var p = Panola.new("a@vol[0.1] b c@vol^0.7^ b a");
+		var vols = p.customPropertyPattern("vol", 0.5).asStream.all;
+		this.assertArrayFloatEquals(vols, [0.1, 0.1, 0.7, 0.1, 0.1]);
+	}
+
+	test_oneshot_properties_ii {
+		var p = Panola.new("a@vol{0.1} b c@vol^0.7^ b@vol{0.4} a");
+		var vols = p.customPropertyPattern("vol", 0.5).asStream.all;
+		this.assertArrayFloatEquals(vols, [0.1, 0.2, 0.7, 0.4, 0.4]);
+	}
+
+	test_mixing_types {
+		var p = Panola.new("a@vol{0.1} b c@vol[0.3] d e@vol^0.9^ f g@vol{0.5} f e d b@vol[0.1]");
+		var vols = p.customPropertyPattern("vol", 0.5).asStream.all;
+		this.assertArrayFloatEquals(vols, [0.1, 0.2, 0.3, 0.3, 0.9, 0.3, 0.5, 0.4, 0.3, 0.2, 0.1]);
+	}
+}
+
 PanolaTester {
     *new {
         ^super.new.init();
@@ -429,5 +461,6 @@ PanolaTester {
         PropertyTester.run;
         UnrollTester.run;
         CounterTester.run;
+		AnimationTester.run;
     }
 }
