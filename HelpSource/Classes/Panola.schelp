@@ -437,8 +437,17 @@ Panola.new("a4");
 ~player = ~ex.asPbind.play;
 )
 
-// If you want to use the fixed values, use square brackets instead. You can switch between fixed and animated everytime
-// you specify a new property value. In the next example, tempo remains at 80 bpm until we come to note a. At that point,
+// A third type of property (one-shot property) is specified by using ^ ^ instead of brackets,
+// to specify a one-time override of a property value without further disturbing an ongoing animation.
+// One use case would be adding an accent in the middle of a decrescendo line e.g.
+(
+~ex = Panola.new("c4@vol{0.9} d e f g a@vol^0.9^ b c5@vol{0.2}");
+~player = ~ex.asPbind.play;
+)
+
+// If you want to values that remain constant over time, use square brackets instead.
+// You can switch between fixed and animated everytime you specify a new property value.
+// In the next example, tempo remains at 80 bpm until we come to note a. At that point,
 // it jumps to value 100 bpm and gradually increases to 200.
 (
 ~ex = Panola.new("c4@tempo[80] d e f g a@tempo{100} b c5 d e f g a b c6@tempo{200}");

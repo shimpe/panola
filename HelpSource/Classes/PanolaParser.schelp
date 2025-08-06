@@ -35,6 +35,16 @@ simple parser that recognizes a panola duration. Panola duration is an underscor
 
 returns:: the class PanolaParser itself
 
+METHOD:: durationParser2
+simple parser that recognizes a panola with only multiplier and optional divisor. 
+
+returns:: the class PanolaParser itself
+
+METHOD:: durationParser3
+simple parser that recognizes a panola with only divisor.
+
+returns:: the class PanolaParser itself
+
 METHOD:: propertynameParser
 simple parser that recognizes a panola propertyname, e.g. amp. Users can use any name they want as long as it starts with a lowercase.
 
