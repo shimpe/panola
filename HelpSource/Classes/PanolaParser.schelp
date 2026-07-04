@@ -108,6 +108,11 @@ parser that parses a list of notes between repeat brackets
 
 returns:: the class PanolaParser itself
 
+METHOD:: makeErr
+helper function to create an error message for use in combination with errorMap
+
+returns:: the class PanolaParser itself
+
 METHOD:: new
 creates a new instance of PanolaParser
 
