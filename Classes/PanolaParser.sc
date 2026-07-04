@@ -109,6 +109,12 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 	description="parser that parses a list of notes between repeat brackets"
     */
 	classvar <repeatedNotelist;
+	/*
+	[classmethod.makeErr]
+	description="helper function to create an error message for use in combination with errorMap"
+    */
+	classvar <makeErr;
+
 
 	/*
 	[classmethod.new]
@@ -123,8 +129,20 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 	description="initializes a newly created PanolaParser"
     */
 	init {
-		noteParser = ScpRegexParser("[aAbBcCdDeEfFgG]").map({|result| (\type: \notename, \value: result.toLower) });
-		restParser = ScpRegexParser("[rR]").map({|result| (\type: \rest) });
+		makeErr = {
+			| what |
+			{
+				| state |
+				var context = "   at idx" + state.index ++ "\n   Context: [..]" ++ state.target.drop(state.index).keep(10) ++ "[..]";
+				"Problem parsing:" + what ++ "\n" ++ context;
+			};
+		};
+		noteParser = ScpRegexParser("[aAbBcCdDeEfFgG]")
+		.map({|result| (\type: \notename, \value: result.toLower) })
+		.errorMapState(makeErr.("note name"));
+		restParser = ScpRegexParser("[rR]")
+		.map({|result| (\type: \rest) })
+		.errorMapState(makeErr.("rest"));
 		noteModifier = ScpOptional(ScpChoice([
 			ScpStrParser("--").map({|result| (\type : \notemodifier, \value: \doubleflat) }),
 			ScpStrParser("-").map({|result| (\type: \notemodifier, \value: \flat) }),
@@ -142,7 +160,8 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				ScpMany(ScpStrParser(".")).map({|result| (\type: \durdots, \value: result.size)}),
 				ScpOptional(ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durmultiplier, \value: result[1])})),
 				ScpOptional(ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}))
-		])).map({
+		]))
+		.map({
 			|result|
 			if (result.isNil) {
 				(\dur : \previous, \durmultiplier: \previous, \durdivider: \previous, \durdots: \previous);
@@ -171,12 +190,17 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				};
 				dur;
 			};
-		});
+		})
+		.errorMapState(makeErr.("duration"));
 
 		durationParser2 = ScpSequenceOf([
-			ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durmultiplier, \value: result[1])}),
+			ScpSequenceOf([ScpStrParser("*"), ScpParserFactory.makeIntegerParser])
+			.map({|result| (\type: \durmultiplier, \value: result[1])})
+			.errorMapState(makeErr.("duration")),
+
 			ScpOptional(ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}))
-		]).map({
+		])
+		.map({
 			|result|
 			if (result.isNil) {
 				(\dur : \previous, \durmultiplier: \previous, \durdivider: \previous, \durdots: \previous);
@@ -205,9 +229,11 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				};
 				dur;
 			};
-		});
+		})
+		.errorMapState(makeErr.("duration"));
 
-		durationParser3 = ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser]).map({|result| (\type: \durdivider, \value: result[1])}).map({
+		durationParser3 = ScpSequenceOf([ScpStrParser("/"), ScpParserFactory.makeIntegerParser])
+		.map({|result| (\type: \durdivider, \value: result[1])}).map({
 			|result|
 			if (result.isNil) {
 				(\dur : \previous, \durmultiplier: \previous, \durdivider: \previous, \durdots: \previous);
@@ -222,9 +248,13 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				};
 				dur;
 			};
-		});
+		})
+		.errorMapState(makeErr.("duration"));
 
-		propertynameParser = ScpRegexParser("[@|\\][a-zA-z][a-zA-Z0-9]*").map({|result| (\type: \propertyname, \value: result.drop(1))});
+		propertynameParser = ScpRegexParser("[@|\\][a-zA-z][a-zA-Z0-9]*")
+		.map({|result| (\type: \propertyname, \value: result.drop(1))})
+		.errorMapState(makeErr.("property name"));
+
 		propertiesParser = ScpMany(
 			ScpChoice([
 				ScpSequenceOf([
@@ -245,7 +275,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 					ScpParserFactory.makeFloatParser,
 					ScpStrParser("^")
 				]).map({|result| (\propertyname: result[0][\value], \type: \oneshotproperty, \value: result[2])}),
-		]));
+		])).errorMapState(makeErr.("property list"));
 
 		noteAndMod = ScpChoice([
 			ScpSequenceOf([noteParser, noteModifier]),
@@ -269,7 +299,9 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 
 		noteAndModAndOctAndDurAndProp = ScpSequenceOf([
 			noteAndModAndOctAndDur,
-			propertiesParser]).map({|result| (\type: \singlenote, \info : ( \note : result[0], \props : result[1] ) ); });
+			propertiesParser])
+		.map({|result| (\type: \singlenote, \info : ( \note : result[0], \props : result[1] ) ); })
+		.errorMapState(makeErr.("note"));
 
 		betweenChordBrackets = ScpParserFactory.makeBetween(
 			ScpSequenceOf([ScpStrParser("<"), ScpParserFactory.makeWs]),
@@ -280,13 +312,21 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				ScpSequenceOf([
 					noteAndModAndOctAndDurAndProp,
 					ScpParserFactory.makeWs
-				]).map({|result| result[0] }); // remove whitespace from result
-		)).map({|result| (\type: \chord, \notes : result) });
+				])
+				.map({|result| result[0] })
+				.errorMapState(makeErr.("chord notes")); // remove whitespace from result
+		))
+		.map({|result| (\type: \chord, \notes : result) })
+		.errorMapState(makeErr.("chord"));
 
 		notelistParser = ScpManyOne(ScpChoice([
-			ScpSequenceOf([chordParser, ScpParserFactory.makeWs]).map({|result| result[0]}), // eat whitespace
-			ScpSequenceOf([noteAndModAndOctAndDurAndProp, ScpParserFactory.makeWs]).map({|result| result[0] }) // eat whitespace
-		]));
+			ScpSequenceOf([chordParser, ScpParserFactory.makeWs])
+			.map({|result| result[0]})
+			.errorMapState(makeErr.("chord")), // eat whitespace
+			ScpSequenceOf([noteAndModAndOctAndDurAndProp, ScpParserFactory.makeWs])
+			.map({|result| result[0] })
+			.errorMapState(makeErr.("notes"))// eat whitespace
+		])).errorMapState(makeErr.("note list"));
 
 		betweenRepeatBrackets = ScpParserFactory.makeBetween(
 			ScpSequenceOf([ScpStrParser("("), ScpParserFactory.makeWs]),
@@ -294,7 +334,9 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 		);
 
 		mixedNotelist = ScpParserFactory.forwardRef(Thunk({
-			ScpManyOne(ScpChoice([repeatedNotelist, notelistParser])).map({|result| result.flatten(1); });
+			ScpManyOne(ScpChoice([repeatedNotelist, notelistParser]))
+			.map({|result| result.flatten(1); })
+			.errorMapState(makeErr.("(repeated or normal) note list"));
 		}));
 
 		repeatedNotelist = ScpSequenceOf([
@@ -304,7 +346,8 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 			ScpParserFactory.makeWs,
 			ScpParserFactory.makeIntegerParser,
 			ScpParserFactory.makeWs
-		]).map({
+		])
+		.map({
 			// unroll the loop already - not sure if this is a good idea (memory consumption!)
 			// but it's easier to evaluate later on
 			|result|
@@ -314,7 +357,8 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				parseRes = parseRes.addAll(result[0]);
 			});
 			parseRes.flatten(1);
-		});
+		})
+		.errorMapState(makeErr.("repeated note list"));
 	}
 
 	/*
@@ -323,7 +367,7 @@ simple parser that recognizes panola properties. Properties consist of a name, a
     */
 	parse {
 		| notation, trace=false |
-		^PanolaParser.mixedNotelist.run(notation, trace:trace);
+		^PanolaParser.mixedNotelist.run(notation.stripWhiteSpace, trace:trace, consumeAll:true);
 	}
 
 }
