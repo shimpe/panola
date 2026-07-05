@@ -9,7 +9,8 @@ Pure transform from Panola voice(s) + score preferences (time signature, key, cl
 grouping) to an MEI document (a String), usable by any MEI renderer (Verovio, ...). Panola itself has
 no notion of barlines / key / clef, so those are supplied here; notes crossing a barline are split and
 tied, eighths-and-shorter are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups,
-and per-note teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation.
+and per-note teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
+teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
 
 Typical use:
 code::
@@ -23,7 +24,7 @@ PanolaMEI {
 
 	/*
 	[classmethod.scoreAsMEI]
-	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including ties across barlines, per-beat beaming, tuplets, and per-note dynamics/articulation."
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including ties across barlines, per-beat beaming, tuplets, per-note dynamics/articulation, and slurs."
 	[classmethod.scoreAsMEI.args]
 	voices = "an Array of Panola instances (one per staff, top to bottom)"
 	meter = "time signature as a String, e.g. \"4/4\""
