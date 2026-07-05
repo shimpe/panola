@@ -40,12 +40,16 @@ PanolaMEI {
 			}
 		};
 		var parseDur = { |s|
+			// notationdurationPattern form: "_<value>.0( .)*(\*<mult>/<div>)?", e.g. "_8.0 .*2/3"
 			var afterU = s.copyRange(1, s.size - 1);
 			var starIdx = afterU.indexOf($*);
 			var durPart = if (starIdx.notNil) { afterU.copyRange(0, starIdx - 1) } { afterU };
-			var dots = 0, digits = "";
-			durPart.do({ |ch| if (ch == $.) { dots = dots + 1 } { digits = digits ++ ch.asString } });
-			[digits.asInteger, dots];
+			var ratioPart = if (starIdx.notNil) { afterU.copyRange(starIdx + 1, afterU.size - 1) } { "1/1" };
+			var tokens = durPart.split($ );                 // ["8.0", "."]
+			var value = tokens[0].asFloat.asInteger;        // 8
+			var dots = tokens.size - 1;                     // count of space-separated "."
+			var ratio = ratioPart.split($/);                // ["2", "3"]
+			[value, dots, ratio[0].asInteger, ratio[1].asInteger];   // [meidur, dots, mult, div]
 		};
 		var vals = [[1,0,4.0],[2,1,3.0],[2,0,2.0],[4,1,1.5],[4,0,1.0],[8,1,0.75],[8,0,0.5],[16,0,0.25]];
 		var decompose = { |beats|
@@ -159,7 +163,11 @@ PanolaMEI {
 			var names = panola.notationnotePattern.asStream.all;
 			var durs = panola.notationdurationPattern.asStream.all;
 			var beats = panola.durationPattern.asStream.all;
-			names.collect({ |nm, i| var e = parseName.(nm), d = parseDur.(durs[i]); e[\meidur] = d[0]; e[\dots] = d[1]; e[\beats] = beats[i]; e });
+			names.collect({ |nm, i|
+				var e = parseName.(nm), d = parseDur.(durs[i]);
+				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
+				e;
+			});
 		};
 
 		// ---- body ---------------------------------------------------------
