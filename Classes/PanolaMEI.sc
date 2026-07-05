@@ -62,6 +62,37 @@ PanolaMEI {
 			out;
 		};
 		var durToBeats = { |md, dt| (4 / md) * (2 - (1 / (2 ** dt))) };
+		var artCode = { |name|
+			IdentityDictionary[
+				\staccato->"stacc", \stacc->"stacc", \staccatissimo->"stacciss", \stacciss->"stacciss",
+				\accent->"acc", \acc->"acc", \tenuto->"ten", \ten->"ten",
+				\marcato->"marc", \marc->"marc", \spiccato->"spicc", \spicc->"spicc"
+			][name.asString.asSymbol];
+		};
+		// per event: articStr (space-separated MEI artic codes) + dynMark (dynamic to emit here, or nil).
+		// articulation set: "name:on"/"name:off" toggles it (on change); a bare name adds to this note only.
+		var annotateExpression = { |events|
+			var artSet = Set[], prevArt = "", prevDyn = "";
+			events.do({ |ev|
+				var art = ev[\art] ? "", dyn = ev[\dyn] ? "", noteSet;
+				if ((art != prevArt) and: { art.includes($:) }) {
+					var parts = art.split($:), code = artCode.(parts[0]);
+					if (code.notNil) {
+						(parts[1] == "on").if({ artSet = artSet.add(code) }, { artSet.remove(code) });
+					} { ("PanolaMEI: unknown articulation '" ++ parts[0] ++ "'").warn };
+				};
+				prevArt = art;
+				noteSet = artSet.copy;
+				if ((art != "") and: { art.includes($:).not }) {
+					var code = artCode.(art);
+					if (code.notNil) { noteSet = noteSet.add(code) } { ("PanolaMEI: unknown articulation '" ++ art ++ "'").warn };
+				};
+				ev[\articStr] = noteSet.asArray.sort.join(" ");
+				ev[\dynMark] = ((dyn != prevDyn) and: { dyn != "" }).if({ dyn }, { nil });
+				prevDyn = dyn;
+			});
+			events;
+		};
 		var keysig = IdentityDictionary[
 			\cmajor->[0,\n], \aminor->[0,\n], \gmajor->[1,\s], \eminor->[1,\s], \dmajor->[2,\s], \bminor->[2,\s],
 			\amajor->[3,\s], \fsharpminor->[3,\s], \emajor->[4,\s], \csharpminor->[4,\s], \bmajor->[5,\s], \gsharpminor->[5,\s],
@@ -85,13 +116,15 @@ PanolaMEI {
 		var accidS = { |a| a.notNil.if({ " accid=\"" ++ a ++ "\"" }, {""}) };
 		var meiElement = { |ev, md, dt, tie, k|
 			var ts = tie.notNil.if({ " tie=\"" ++ tie ++ "\"" }, {""});
+			// articulation only on a whole note or the first tied fragment (not on continuations)
+			var aa = (((ev[\articStr] ? "") != "") and: { tie.isNil or: { tie == "i" } }).if({ " artic=\"" ++ ev[\articStr] ++ "\"" }, { "" });
 			if (ev[\rest]) { "<rest" ++ durAttrs.(md,dt) ++ "/>" } {
 				if (ev[\pnames].size == 1) {
-					"<note" ++ durAttrs.(md,dt) ++ " oct=\"" ++ ev[\octs][0] ++ "\" pname=\"" ++ ev[\pnames][0] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][0], ev[\accids][0], k)) ++ ts ++ "/>"
+					"<note" ++ durAttrs.(md,dt) ++ aa ++ " oct=\"" ++ ev[\octs][0] ++ "\" pname=\"" ++ ev[\pnames][0] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][0], ev[\accids][0], k)) ++ ts ++ "/>"
 				} {
 					var inner = "";
 					ev[\pnames].size.do({ |c| inner = inner ++ "<note oct=\"" ++ ev[\octs][c] ++ "\" pname=\"" ++ ev[\pnames][c] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][c], ev[\accids][c], k)) ++ ts ++ "/>" });
-					"<chord" ++ durAttrs.(md,dt) ++ ">" ++ inner ++ "</chord>"
+					"<chord" ++ durAttrs.(md,dt) ++ aa ++ ">" ++ inner ++ "</chord>"
 				}
 			}
 		};
@@ -218,9 +251,12 @@ PanolaMEI {
 			var names = panola.notationnotePattern.asStream.all;
 			var durs = panola.notationdurationPattern.asStream.all;
 			var beats = panola.durationPattern.asStream.all;
+			var dyns = panola.customPropertyPattern("dyn", "").asStream.all;
+			var arts = panola.customPropertyPattern("art", "").asStream.all;
 			names.collect({ |nm, i|
 				var e = parseName.(nm), d = parseDur.(durs[i]);
 				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
+				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString;
 				e;
 			});
 		};
@@ -231,7 +267,7 @@ PanolaMEI {
 		bb = barBeats.(meter);
 		mp = meter.split($/);
 		groupBeats = ((mp[1].asInteger == 8) and: { (mp[0].asInteger % 3) == 0 }).if({ 1.5 }, { 1.0 });
-		perVoice = voices.collect({ |p| voiceToMeasures.(eventsOf.(p), bb, key) });
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), bb, key) });
 		nm = perVoice.collect(_.size).maxItem;
 		perVoice = perVoice.collect({ |m| while { m.size < nm } { m = m.add(emptyRest.(bb)) }; m });
 		nm.do({ |i|
