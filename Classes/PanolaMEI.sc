@@ -1,21 +1,38 @@
 /*
-PanolaMEI — render Panola voice(s) to an MEI document (music notation).
+[general]
+title = "PanolaMEI"
+summary = "render Panola voice(s) to an MEI music-notation document"
+categories = "Notation, Utils"
+related = "Classes/Panola, Classes/MSScore"
+description = '''
+Pure transform from Panola voice(s) + score preferences (time signature, key, clef per staff, brace
+grouping) to an MEI document (a String), usable by any MEI renderer (Verovio, ...). Panola itself has
+no notion of barlines / key / clef, so those are supplied here; notes crossing a barline are split and
+tied, eighths-and-shorter are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups,
+and per-note teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation.
 
-Pure transform: Panola note data (via Panola's public accessors) + score preferences
-(time signature, key, clef per staff, brace grouping) -> an MEI string usable by any MEI
-renderer (Verovio, ...). Panola itself has no notion of barlines / key / clef, so those are
-supplied here; notes that cross a barline are split and tied.
-
-    PanolaMEI.scoreAsMEI([Panola("c5_4 e g a"), Panola("c3_2 g2")],
-        meter: "4/4", key: \Cmajor, clefs: [\treble, \bass], braces: [[1,2]])
-
-Also reachable as `aPanola.asMEI(meter, key, clef)` (see Panola.sc).
+Typical use:
+code::
+PanolaMEI.scoreAsMEI([Panola("c5_4 e g a"), Panola("c3_2 g2")],
+    meter: "4/4", key: \Cmajor, clefs: [\treble, \bass], braces: [[1,2]]);
+::
+Also reachable as teletype::aPanola.asMEI(meter, key, clef):: (see link::Classes/Panola::).
+'''
 */
 PanolaMEI {
 
-	// voices: array of Panola instances (one per staff, top->bottom)
-	// meter:  "num/den" ; key: a key symbol (\Cmajor, \Dminor, \CsharpMinor, ...)
-	// clefs:  one clef symbol per staff (\treble \bass \alto \tenor) ; braces: [[first,last], ...]
+	/*
+	[classmethod.scoreAsMEI]
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including ties across barlines, per-beat beaming, tuplets, and per-note dynamics/articulation."
+	[classmethod.scoreAsMEI.args]
+	voices = "an Array of Panola instances (one per staff, top to bottom)"
+	meter = "time signature as a String, e.g. \"4/4\""
+	key = "key Symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
+	clefs = "an Array of clef Symbols (\\treble \\bass \\alto \\tenor), one per staff (nil defaults to all \\treble)"
+	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
+	[classmethod.scoreAsMEI.returns]
+	what = "an MEI document (a String)"
+	*/
 	*scoreAsMEI {
 		| voices, meter = "4/4", key = \Cmajor, clefs = nil, braces = nil |
 
