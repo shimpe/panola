@@ -1013,6 +1013,38 @@ Panola {
 		result.patternpairs_(this.asPbind(instrument, include_custom_properties, custom_property_defaults, translate_std_keys, include_tempo).patternpairs);
 		^result;
 	}
+
+	/*
+	[method.asMEI]
+	description = "render this Panola voice to an MEI notation document (one staff). Panola has no barlines/key/clef, so a meter, key and clef are supplied here; a note that crosses a barline is split and tied. Delegates to PanolaMEI."
+	[method.asMEI.args]
+	meter = "time signature string, e.g. \"4/4\""
+	key = "key symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
+	clef = "clef symbol: \\treble, \\bass, \\alto, \\tenor"
+	[method.asMEI.returns]
+	what = "an MEI document (a String)"
+	*/
+	asMEI {
+		| meter="4/4", key=\Cmajor, clef=\treble |
+		^PanolaMEI.scoreAsMEI([this], meter, key, [clef], nil);
+	}
+
+	/*
+	[classmethod.scoreAsMEI]
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first)."
+	[classmethod.scoreAsMEI.args]
+	voices = "array of Panola instances"
+	meter = "time signature string, e.g. \"4/4\""
+	key = "key symbol"
+	clefs = "array of clef symbols, one per staff (defaults to all treble)"
+	braces = "array of [firstStaff, lastStaff] 1-based ranges to join with a brace"
+	[classmethod.scoreAsMEI.returns]
+	what = "an MEI document (a String)"
+	*/
+	*scoreAsMEI {
+		| voices, meter="4/4", key=\Cmajor, clefs=nil, braces=nil |
+		^PanolaMEI.scoreAsMEI(voices, meter, key, clefs, braces);
+	}
 }
 
 /*
