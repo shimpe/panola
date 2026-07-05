@@ -131,11 +131,12 @@ PanolaMEI {
 		var barBeats = { |m| var p = m.split($/); p[0].asInteger * (4.0 / p[1].asInteger) };
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k|
-			var measures = [[]], pos = 0.0, eps = 1e-6;
+			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [];
 			groupEvents.(events).do({ |unit|
 				if (unit[\kind] == \tuplet) {
 					// tuplet groups are atomic: never decomposed or split-and-tied across a barline
 					var tbeats = unit[\beats];
+						unit[\members].do({ |mev| if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: mev[\dynMark] )) } });
 					if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
 						("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
 					};
@@ -146,6 +147,7 @@ PanolaMEI {
 				} {
 					var ev = unit[\ev];
 					var remaining = ev[\beats], firstFrag = true;
+						if (ev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: ev[\dynMark] )) };
 					while { remaining > eps } {
 						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
 						var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
@@ -164,7 +166,7 @@ PanolaMEI {
 				};
 			});
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
-			measures;
+			( measures: measures, dynams: dynams );
 		};
 		var clefMap = IdentityDictionary[\treble->["G","2"], \bass->["F","4"], \alto->["C","3"], \tenor->["C","4"]];
 		var emptyRest = { |bb|
@@ -268,11 +270,17 @@ PanolaMEI {
 		mp = meter.split($/);
 		groupBeats = ((mp[1].asInteger == 8) and: { (mp[0].asInteger % 3) == 0 }).if({ 1.5 }, { 1.0 });
 		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), bb, key) });
-		nm = perVoice.collect(_.size).maxItem;
-		perVoice = perVoice.collect({ |m| while { m.size < nm } { m = m.add(emptyRest.(bb)) }; m });
+		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
+		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(bb)) }; v });
 		nm.do({ |i|
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
-			perVoice.do({ |m, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(m[i], groupBeats) ++ "</layer></staff>" });
+			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], groupBeats) ++ "</layer></staff>" });
+			perVoice.do({ |v, s|
+				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
+					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.asString });
+					body = body ++ "<dynam tstamp=\"" ++ tss ++ "\" staff=\"" ++ (s+1) ++ "\">" ++ dm[\mark] ++ "</dynam>";
+				});
+			});
 			body = body ++ "</measure>";
 		});
 		^("<?xml version=\"1.0\" encoding=\"UTF-8\"?><mei xmlns=\"http://www.music-encoding.org/ns/mei\" meiversion=\"4.0.0\"><music><body><mdiv><score>"
