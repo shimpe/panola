@@ -57,6 +57,7 @@ PanolaMEI {
 			};
 			out;
 		};
+		var durToBeats = { |md, dt| (4 / md) * (2 - (1 / (2 ** dt))) };
 		var keysig = IdentityDictionary[
 			\cmajor->[0,\n], \aminor->[0,\n], \gmajor->[1,\s], \eminor->[1,\s], \dmajor->[2,\s], \bminor->[2,\s],
 			\amajor->[3,\s], \fsharpminor->[3,\s], \emajor->[4,\s], \csharpminor->[4,\s], \bmajor->[5,\s], \gsharpminor->[5,\s],
@@ -91,19 +92,22 @@ PanolaMEI {
 			}
 		};
 		var barBeats = { |m| var p = m.split($/); p[0].asInteger * (4.0 / p[1].asInteger) };
+		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k|
 			var measures = [[]], pos = 0.0, eps = 1e-6;
 			events.do({ |ev|
 				var remaining = ev[\beats], firstFrag = true;
 				while { remaining > eps } {
 					var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-					var lastFrag = crosses.not, pieces = decompose.(take);
+					var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
 					pieces.do({ |pc, c|
 						var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
 						if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
 							tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
 						};
-						measures[measures.size-1] = measures[measures.size-1].add(meiElement.(ev, pc[0], pc[1], tie, k));
+						measures[measures.size-1] = measures[measures.size-1].add(
+							( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0], rest: ev[\rest], beatPos: subpos ));
+						subpos = subpos + durToBeats.(pc[0], pc[1]);
 					});
 					pos = pos + take; remaining = remaining - take; firstFrag = false;
 					if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
@@ -113,7 +117,31 @@ PanolaMEI {
 			measures;
 		};
 		var clefMap = IdentityDictionary[\treble->["G","2"], \bass->["F","4"], \alto->["C","3"], \tenor->["C","4"]];
-		var emptyRest = { |bb| decompose.(bb).collect({ |pc| "<rest" ++ durAttrs.(pc[0],pc[1]) ++ "/>" }).join };
+		var emptyRest = { |bb|
+			var recs = [], p = 0.0;
+			decompose.(bb).do({ |pc|
+				recs = recs.add(( str: "<rest" ++ durAttrs.(pc[0],pc[1]) ++ "/>", md: pc[0], rest: true, beatPos: p ));
+				p = p + durToBeats.(pc[0], pc[1]);
+			});
+			recs;
+		};
+		// join a measure's records to MEI, wrapping runs of >=2 beamable notes (dur>=8, not rest)
+		// that share a beat-group in <beam> ... </beam>. groupBeats: 1 beat (simple) or 1.5 (compound /8).
+		var beamMeasure = { |records, groupBeats|
+			var result = "", i = 0;
+			while { i < records.size } {
+				var rec = records[i], beamable = rec[\rest].not and: { rec[\md] >= 8 };
+				if (beamable) {
+					var grp = (rec[\beatPos] / groupBeats).floor, run = [rec], j = i + 1;
+					while { (j < records.size) and: { records[j][\rest].not and: { (records[j][\md] >= 8) and: { (records[j][\beatPos] / groupBeats).floor == grp } } } } {
+						run = run.add(records[j]); j = j + 1;
+					};
+					if (run.size >= 2) { result = result ++ "<beam>" ++ run.collect({ |r| r[\str] }).join ++ "</beam>" } { result = result ++ run[0][\str] };
+					i = j;
+				} { result = result ++ rec[\str]; i = i + 1 };
+			};
+			result;
+		};
 		var staffGrp = { |nst, cl, br|
 			var defs = (1..nst).collect({ |n| "<staffDef n=\"" ++ n ++ "\" lines=\"5\" clef.shape=\"" ++ clefMap[cl[n-1]][0] ++ "\" clef.line=\"" ++ clefMap[cl[n-1]][1] ++ "\"/>" });
 			var out = "", n = 1;
@@ -135,16 +163,17 @@ PanolaMEI {
 		};
 
 		// ---- body ---------------------------------------------------------
-		var bb, perVoice, nm, mp, body = "";
+		var bb, perVoice, nm, mp, groupBeats, body = "";
 		clefs = clefs ? voices.collect({ \treble });
 		bb = barBeats.(meter);
+		mp = meter.split($/);
+		groupBeats = ((mp[1].asInteger == 8) and: { (mp[0].asInteger % 3) == 0 }).if({ 1.5 }, { 1.0 });
 		perVoice = voices.collect({ |p| voiceToMeasures.(eventsOf.(p), bb, key) });
 		nm = perVoice.collect(_.size).maxItem;
-		mp = meter.split($/);
-		perVoice = perVoice.collect({ |m| while { m.size < nm } { m = m.add([emptyRest.(bb)]) }; m });
+		perVoice = perVoice.collect({ |m| while { m.size < nm } { m = m.add(emptyRest.(bb)) }; m });
 		nm.do({ |i|
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
-			perVoice.do({ |m, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ m[i].join ++ "</layer></staff>" });
+			perVoice.do({ |m, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(m[i], groupBeats) ++ "</layer></staff>" });
 			body = body ++ "</measure>";
 		});
 		^("<?xml version=\"1.0\" encoding=\"UTF-8\"?><mei xmlns=\"http://www.music-encoding.org/ns/mei\" meiversion=\"4.0.0\"><music><body><mdiv><score>"
