@@ -177,8 +177,14 @@ PanolaMEI {
 				if (unit[\kind] == \tuplet) {
 					// tuplet groups are atomic: never decomposed or split-and-tied across a barline
 					var tbeats = unit[\beats];
-						unit[\members].do({ |mev| if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: mev[\dynMark] )) } });
-						unit[\members].do({ |mev| if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, pos + 1) } });
+						// give each tuplet member its real sub-tuplet beat offset, so dynamics/slur endpoints
+						// land on the right note (a slur inside one tuplet must not collapse to a point)
+						unit[\members].inject(0.0, { |macc, mev|
+							var mts = pos + macc + 1;
+							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: mts, mark: mev[\dynMark] )) };
+							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, mts) };
+							macc + mev[\beats];
+						});
 					if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
 						("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
 					};
@@ -322,15 +328,15 @@ PanolaMEI {
 			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], groupBeats) ++ "</layer></staff>" });
 			perVoice.do({ |v, s|
 				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
-					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.asString });
+					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.round(0.0001).asString });
 					body = body ++ "<dynam tstamp=\"" ++ tss ++ "\" staff=\"" ++ (s+1) ++ "\">" ++ dm[\mark] ++ "</dynam>";
 				});
 			});
 			perVoice.do({ |v, s|
 				v[\slurs].select({ |sl| sl[\startMeasure] == (i+1) }).do({ |sl|
 					var t1 = sl[\startTstamp], t2 = sl[\endTstamp], dm = sl[\endMeasure] - sl[\startMeasure];
-					var t1s = (t1.frac < 1e-6).if({ t1.asInteger.asString }, { t1.asString });
-					var t2s = (t2.frac < 1e-6).if({ t2.asInteger.asString }, { t2.asString });
+					var t1s = (t1.frac < 1e-6).if({ t1.asInteger.asString }, { t1.round(0.0001).asString });
+					var t2s = (t2.frac < 1e-6).if({ t2.asInteger.asString }, { t2.round(0.0001).asString });
 					body = body ++ "<slur tstamp=\"" ++ t1s ++ "\" tstamp2=\"" ++ dm ++ "m+" ++ t2s ++ "\" staff=\"" ++ (s+1) ++ "\"/>";
 				});
 			});
