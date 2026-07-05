@@ -276,7 +276,7 @@ default value of the property if not specified explicitly
 
 returns:: a pattern (Pseq) generating the customProperty values
 METHOD:: asPbind
-method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are not synth controls and are left out of the Pbind, so a voice carrying them still plays every note; the values remain available for notation via customPropertyPattern.
+method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are not synth controls, but they are kept in the Pbind as symbols so an advanced pattern can read them; notes where such a property is unset take a non-empty default ("none", or the value given in custom_property_defaults) so no note is dropped as a rest.
 
 ARGUMENT:: instrument
 name of the synthdef to use in the pattern's \instrument key

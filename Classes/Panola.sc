@@ -870,7 +870,7 @@ Panola {
 
 	/*
 	[method.asPbind]
-	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are not synth controls and are left out of the Pbind, so a voice carrying them still plays every note; the values remain available for notation via customPropertyPattern."
+	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are not synth controls, but they are kept in the Pbind as symbols so an advanced pattern can read them; notes where such a property is unset take a non-empty default (\"none\", or the value given in custom_property_defaults) so no note is dropped as a rest."
 	[method.asPbind.args]
 	instrument = "name of the synthdef to use in the pattern's \\instrument key"
 	include_custom_properties = "boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \\instrument, \\midinote, \\dur, \\lag, \\legato, \\amp and optionally \\tempo are extracted"
@@ -929,12 +929,23 @@ Panola {
 				var scale = 1.0;
 				var exclude_property = include_tempo.not.and(stringproperty.compare("tempo") == 0);
 				if (exclude_property.not) {
-					// string-valued custom properties (e.g. the notation properties @dyn/@art) are not
-					// synth controls, so they are left out of the Pbind: a synth arg must be numeric, and
-					// passing a symbol (especially an empty '') makes SuperCollider drop those notes as
-					// rests. The values remain available for notation via customPropertyPattern. Numeric
-					// properties are scaled and added as before.
-					if (this.customPropertyPattern(stringproperty, 0.0).asStream.all.any({ |v| v.isKindOf(String) }).not) {
+					// custom properties are added to the Pbind here. Numeric ones are scaled; string-valued
+					// ones (e.g. notation @dyn/@art) are not synth controls but are still passed through so
+					// an advanced pattern can read them -- see the string branch below for the empty-value
+					// handling.
+					var isString = this.customPropertyPattern(stringproperty, 0.0).asStream.all.any({ |v| v.isKindOf(String) });
+						var userDefault = nil;
+						if (custom_property_defaults.notNil) {
+							userDefault = custom_property_defaults[stringproperty] ? custom_property_defaults[stringproperty.asSymbol];
+						};
+						if (isString) {
+							// keep string props in the Pbind (so an advanced pattern can read \art/\dyn), but
+							// fill unset notes with a non-empty default ("none" unless overridden) so the empty
+							// symbol '' never appears -- SuperCollider drops such an event as a rest.
+							var strDefault = (userDefault.notNil and: { userDefault.asString.size > 0 }).if({ userDefault.asString }, { "none" });
+							mapped_props = mapped_props.add([pbindkey,
+								Pseq(this.customPropertyPattern(stringproperty, strDefault).asStream.all.collect({ |v| v.asSymbol })) ]);
+						} {
 						if (custom_property_defaults.notNil) {
 							if (custom_property_defaults[stringproperty].notNil) {
 								default_val = custom_property_defaults[stringproperty];
