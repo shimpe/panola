@@ -741,7 +741,14 @@ Panola {
 		| prop_name="vol", default_type = \staticproperty, default_propval = 0.5 |
 		var currval = default_propval;
 		var patlist = [];
-		var numOrRaw = { |v| v.isNumber.if({ v.asFloat }, { v }) };   // keep word (string) values as-is
+		// numbers and numeric text (e.g. a property's default like "0.5") -> Float, as the original code
+		// did with .asFloat; genuine word values (dynamics/articulation names always start with a letter)
+		// and the empty default are kept as-is
+		var numOrRaw = { |v|
+			if (v.isNumber) { v.asFloat } {
+				if ((v.isString) and: { v.size > 0 } and: { v[0].isAlpha.not }) { v.asFloat } { v }
+			};
+		};
 
 		var proplist = parsed_notation.result.collect({
 			| el |
