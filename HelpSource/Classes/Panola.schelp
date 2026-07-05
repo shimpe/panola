@@ -46,6 +46,27 @@ Please see the example code at the bottom for more advanced usage.
 
 
 
+CLASSMETHODS::
+
+METHOD:: scoreAsMEI
+render several Panola voices as one multi-staff MEI score (one voice per staff, top first).
+
+ARGUMENT:: voices
+array of Panola instances
+
+ARGUMENT:: meter
+time signature string, e.g. "4/4"
+
+ARGUMENT:: key
+key symbol
+
+ARGUMENT:: clefs
+array of clef symbols, one per staff (defaults to all treble)
+
+ARGUMENT:: braces
+array of [firstStaff, lastStaff] 1-based ranges to join with a brace
+
+returns:: an MEI document (a String)
 
 INSTANCEMETHODS::
 
@@ -255,7 +276,7 @@ default value of the property if not specified explicitly
 
 returns:: a pattern (Pseq) generating the customProperty values
 METHOD:: asPbind
-method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths
+method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are passed through as symbols rather than scaled numerically, so a voice carrying them still plays.
 
 ARGUMENT:: instrument
 name of the synthdef to use in the pattern's \instrument key
@@ -333,6 +354,19 @@ ARGUMENT:: include_tempo
 a boolean to indicate if tempo should be part of the Pbind. Note that the tempo key modifies the TempoClock and therefore influences all voices playing on that same TempoClock in the system (which may not be desired...)
 
 returns:: a pattern (Pmono) realizing the panola string
+METHOD:: asMEI
+render this Panola voice to an MEI notation document (one staff). Panola has no barlines/key/clef, so a meter, key and clef are supplied here; a note that crosses a barline is split and tied. Delegates to PanolaMEI.
+
+ARGUMENT:: meter
+time signature string, e.g. "4/4"
+
+ARGUMENT:: key
+key symbol, e.g. \Cmajor, \Dminor, \CsharpMinor
+
+ARGUMENT:: clef
+clef symbol: \treble, \bass, \alto, \tenor
+
+returns:: an MEI document (a String)
 
 EXAMPLES::
 

@@ -863,7 +863,7 @@ Panola {
 
 	/*
 	[method.asPbind]
-	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths"
+	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are passed through as symbols rather than scaled numerically, so a voice carrying them still plays."
 	[method.asPbind.args]
 	instrument = "name of the synthdef to use in the pattern's \\instrument key"
 	include_custom_properties = "boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \\instrument, \\midinote, \\dur, \\lag, \\legato, \\amp and optionally \\tempo are extracted"
@@ -922,26 +922,25 @@ Panola {
 				var scale = 1.0;
 				var exclude_property = include_tempo.not.and(stringproperty.compare("tempo") == 0);
 				if (exclude_property.not) {
-					if (custom_property_defaults.notNil) {
-						if (custom_property_defaults[stringproperty].notNil) {
-							default_val = custom_property_defaults[stringproperty];
+					// a custom property whose values are words (e.g. the notation properties @dyn/@art)
+					// can't be scaled arithmetically; pass it through as a Pseq of Symbols so the voice
+					// still plays. Numeric properties keep the original (scaled) behaviour.
+					if (this.customPropertyPattern(stringproperty, 0.0).asStream.all.any({ |v| v.isKindOf(String) })) {
+						mapped_props = mapped_props.add([pbindkey,
+							Pseq(this.customPropertyPattern(stringproperty, "").asStream.all.collect({ |v| v.asSymbol })) ]);
+					} {
+						if (custom_property_defaults.notNil) {
+							if (custom_property_defaults[stringproperty].notNil) {
+								default_val = custom_property_defaults[stringproperty];
+							};
 						};
+						if (translate_std_keys) {
+							if (stringproperty.compare("tempo") == 0) { scale = (1/(60.0)); };
+							if (pbindkey.asString.compare("vol") == 0) { pbindkey = \amp; };
+							if (pbindkey.asString.compare("pdur") == 0) { pbindkey = \legato; };
+						};
+						mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
 					};
-					if (translate_std_keys) {
-						if (stringproperty.compare("tempo") == 0) {
-							scale = (1/(60.0));
-						};
-						if (pbindkey.asString.compare("vol") == 0) {
-							pbindkey = \amp;
-						};
-						if (pbindkey.asString.compare("pdur") == 0) {
-							pbindkey = \legato;
-						};
-					};
-
-					mapped_props = mapped_props.add([pbindkey, this.customPropertyPattern(stringproperty, default_val)*scale]);
-
-
 				};
 			});
 			mapped_props = mapped_props.flatten;
