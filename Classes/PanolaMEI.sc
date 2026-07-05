@@ -99,22 +99,35 @@ PanolaMEI {
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k|
 			var measures = [[]], pos = 0.0, eps = 1e-6;
-			events.do({ |ev|
-				var remaining = ev[\beats], firstFrag = true;
-				while { remaining > eps } {
-					var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-					var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
-					pieces.do({ |pc, c|
-						var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
-						if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
-							tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
-						};
-						measures[measures.size-1] = measures[measures.size-1].add(
-							( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0], rest: ev[\rest], beatPos: subpos ));
-						subpos = subpos + durToBeats.(pc[0], pc[1]);
-					});
-					pos = pos + take; remaining = remaining - take; firstFrag = false;
-					if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+			groupEvents.(events).do({ |unit|
+				if (unit[\kind] == \tuplet) {
+					// tuplet groups are atomic: never decomposed or split-and-tied across a barline
+					var tbeats = unit[\beats];
+					if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
+						("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
+					};
+					measures[measures.size-1] = measures[measures.size-1].add(
+						( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
+					pos = pos + tbeats;
+					if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
+				} {
+					var ev = unit[\ev];
+					var remaining = ev[\beats], firstFrag = true;
+					while { remaining > eps } {
+						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
+						var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
+						pieces.do({ |pc, c|
+							var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
+							if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
+								tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
+							};
+							measures[measures.size-1] = measures[measures.size-1].add(
+								( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0], rest: ev[\rest], beatPos: subpos ));
+							subpos = subpos + durToBeats.(pc[0], pc[1]);
+						});
+						pos = pos + take; remaining = remaining - take; firstFrag = false;
+						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+					};
 				};
 			});
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
@@ -145,6 +158,48 @@ PanolaMEI {
 				} { result = result ++ rec[\str]; i = i + 1 };
 			};
 			result;
+		};
+		// beam consecutive beamable members (dur >= 8, not rest); used inside a tuplet
+		var beamRun = { |recs|
+			var result = "", i = 0;
+			while { i < recs.size } {
+				var rec = recs[i], beamable = rec[\rest].not and: { rec[\md] >= 8 };
+				if (beamable) {
+					var run = [rec], j = i + 1;
+					while { (j < recs.size) and: { recs[j][\rest].not and: { recs[j][\md] >= 8 } } } { run = run.add(recs[j]); j = j + 1 };
+					if (run.size >= 2) { result = result ++ "<beam>" ++ run.collect({ |r| r[\str] }).join ++ "</beam>" } { result = result ++ run[0][\str] };
+					i = j;
+				} { result = result ++ rec[\str]; i = i + 1 };
+			};
+			result;
+		};
+		// one tuplet group -> <tuplet num numbase> at written values, beamable members beamed inside
+		var tupletMEI = { |unit, k|
+			var recs = unit[\members].collect({ |ev|
+				( str: meiElement.(ev, ev[\meidur], ev[\dots], nil, k), md: ev[\meidur], rest: ev[\rest] );
+			});
+			"<tuplet num=\"" ++ unit[\num] ++ "\" numbase=\"" ++ unit[\numbase] ++ "\">" ++ beamRun.(recs) ++ "</tuplet>";
+		};
+		// split a voice's events into plain-note units and tuplet-group units. A tuplet run (same
+		// mult/div != 1/1) closes when its accumulated actual beats fill a power-of-2 container
+		// (0.25/0.5/1/2/4); an unclosed run is emitted as a partial tuplet + warning.
+		var groupEvents = { |events|
+			var units = [], i = 0, eps = 1e-6, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
+			while { i < events.size } {
+				var ev = events[i];
+				if ((ev[\mult] == 1) and: { ev[\div] == 1 }) {
+					units = units.add(( kind: \normal, ev: ev )); i = i + 1;
+				} {
+					var m = ev[\mult], d = ev[\div], members = [], acc = 0.0, closed = false;
+					while { (i < events.size) and: { (events[i][\mult] == m) and: { events[i][\div] == d } } and: { closed.not } } {
+						members = members.add(events[i]); acc = acc + events[i][\beats]; i = i + 1;
+						if (containers.any({ |c| (acc - c).abs < eps })) { closed = true };
+					};
+					if (closed.not) { ("PanolaMEI: incomplete tuplet (" ++ members.size ++ " notes, ratio " ++ d ++ ":" ++ m ++ ") — emitting a partial bracket").warn };
+					units = units.add(( kind: \tuplet, num: d, numbase: m, members: members, beats: acc, complete: closed ));
+				};
+			};
+			units;
 		};
 		var staffGrp = { |nst, cl, br|
 			var defs = (1..nst).collect({ |n| "<staffDef n=\"" ++ n ++ "\" lines=\"5\" clef.shape=\"" ++ clefMap[cl[n-1]][0] ++ "\" clef.line=\"" ++ clefMap[cl[n-1]][1] ++ "\"/>" });
