@@ -148,12 +148,36 @@ PanolaMEI {
 		var barBeats = { |m| var p = m.split($/); p[0].asInteger * (4.0 / p[1].asInteger) };
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k|
-			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [];
+			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
+			// pair @slur^start/end/endstart^ into slur markers. one open slur at a time (no nesting);
+			// endstart closes the open slur and opens a new one at the same note. m/ts = 1-based measure
+			// and beat of the marker note. warn + recover on any mismatch.
+			applySlur = { |slurVal, m, ts|
+				case
+				{ slurVal == "start" } {
+					if (openSlur.notNil) { "PanolaMEI: slur start while a slur is open; the previous one is dropped".warn };
+					openSlur = ( measure: m, tstamp: ts );
+				}
+				{ slurVal == "end" } {
+					if (openSlur.notNil) {
+						slurs = slurs.add(( startMeasure: openSlur[\measure], startTstamp: openSlur[\tstamp], endMeasure: m, endTstamp: ts ));
+						openSlur = nil;
+					} { "PanolaMEI: slur end with no open slur; ignored".warn };
+				}
+				{ slurVal == "endstart" } {
+					if (openSlur.notNil) {
+						slurs = slurs.add(( startMeasure: openSlur[\measure], startTstamp: openSlur[\tstamp], endMeasure: m, endTstamp: ts ));
+					} { "PanolaMEI: slur endstart with no open slur; only opening a new one".warn };
+					openSlur = ( measure: m, tstamp: ts );
+				}
+				{ true } { if (slurVal != "") { ("PanolaMEI: unknown slur value '" ++ slurVal ++ "'").warn } };
+			};
 			groupEvents.(events).do({ |unit|
 				if (unit[\kind] == \tuplet) {
 					// tuplet groups are atomic: never decomposed or split-and-tied across a barline
 					var tbeats = unit[\beats];
 						unit[\members].do({ |mev| if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: mev[\dynMark] )) } });
+						unit[\members].do({ |mev| if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, pos + 1) } });
 					if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
 						("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
 					};
@@ -165,6 +189,7 @@ PanolaMEI {
 					var ev = unit[\ev];
 					var remaining = ev[\beats], firstFrag = true;
 						if (ev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: ev[\dynMark] )) };
+						if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
 					while { remaining > eps } {
 						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
 						var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
@@ -183,7 +208,8 @@ PanolaMEI {
 				};
 			});
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
-			( measures: measures, dynams: dynams );
+			if (openSlur.notNil) { "PanolaMEI: unclosed slur at the end of a voice; dropped".warn };
+			( measures: measures, dynams: dynams, slurs: slurs );
 		};
 		var clefMap = IdentityDictionary[\treble->["G","2"], \bass->["F","4"], \alto->["C","3"], \tenor->["C","4"]];
 		var emptyRest = { |bb|
@@ -272,10 +298,11 @@ PanolaMEI {
 			var beats = panola.durationPattern.asStream.all;
 			var dyns = panola.customPropertyPattern("dyn", "").asStream.all;
 			var arts = panola.customPropertyPattern("art", "").asStream.all;
+			var slurs = panola.customPropertyPattern("slur", "").asStream.all;
 			names.collect({ |nm, i|
 				var e = parseName.(nm), d = parseDur.(durs[i]);
 				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
-				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString;
+				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString; e[\slur] = slurs[i].asString;
 				e;
 			});
 		};
@@ -296,6 +323,14 @@ PanolaMEI {
 				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
 					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.asString });
 					body = body ++ "<dynam tstamp=\"" ++ tss ++ "\" staff=\"" ++ (s+1) ++ "\">" ++ dm[\mark] ++ "</dynam>";
+				});
+			});
+			perVoice.do({ |v, s|
+				v[\slurs].select({ |sl| sl[\startMeasure] == (i+1) }).do({ |sl|
+					var t1 = sl[\startTstamp], t2 = sl[\endTstamp], dm = sl[\endMeasure] - sl[\startMeasure];
+					var t1s = (t1.frac < 1e-6).if({ t1.asInteger.asString }, { t1.asString });
+					var t2s = (t2.frac < 1e-6).if({ t2.asInteger.asString }, { t2.asString });
+					body = body ++ "<slur tstamp=\"" ++ t1s ++ "\" tstamp2=\"" ++ dm ++ "m+" ++ t2s ++ "\" staff=\"" ++ (s+1) ++ "\"/>";
 				});
 			});
 			body = body ++ "</measure>";
