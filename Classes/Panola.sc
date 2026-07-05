@@ -741,6 +741,7 @@ Panola {
 		| prop_name="vol", default_type = \staticproperty, default_propval = 0.5 |
 		var currval = default_propval;
 		var patlist = [];
+		var numOrRaw = { |v| v.isNumber.if({ v.asFloat }, { v }) };   // keep word (string) values as-is
 
 		var proplist = parsed_notation.result.collect({
 			| el |
@@ -777,25 +778,27 @@ Panola {
 		clumped = volprops.slide(2, 1).clump(2);
 		clumpedsize = clumped.size;
 		if (clumped.size == 0) {
-			patlist = patlist.add(Pseq([default_propval.asFloat], proplist.size));
+			patlist = patlist.add(Pseq([numOrRaw.(default_propval)], proplist.size));
 		} {
 			if (clumped[0][0]['distance'].asInteger != 1) {
-				patlist = patlist.add(Pseq([default_propval.asFloat], clumped[0][0]['distance'].asInteger-1));
+				patlist = patlist.add(Pseq([numOrRaw.(default_propval)], clumped[0][0]['distance'].asInteger-1));
 			};
 			clumped.do({
 				| pair, idx |
 				var type = pair[0]['type'];
-				var beginval = pair[0]['value'].asFloat;
-				var endval = pair[1]['value'].asFloat;
+				var rawbegin = pair[0]['value'];
 				var length = pair[1]['distance'].asInteger;
 				var number = length;
 				if (idx == (clumped.size-1)) {
 					number = number + 1;
 				};
-				if (type == \animatedproperty) {
+				// animate only between numeric values; word (string) values are carried as static
+				if ((type == \animatedproperty) and: { rawbegin.isNumber and: { pair[1]['value'].isNumber } }) {
+					var beginval = rawbegin.asFloat;
+					var endval = pair[1]['value'].asFloat;
 					patlist = patlist.add(Pseries(beginval, ((endval - beginval)/(length)), number));
 				} {
-					patlist = patlist.add(Pseq([beginval], number));
+					patlist = patlist.add(Pseq([numOrRaw.(rawbegin)], number));
 				};
 			});
 		}
