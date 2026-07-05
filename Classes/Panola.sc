@@ -870,7 +870,7 @@ Panola {
 
 	/*
 	[method.asPbind]
-	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are passed through as symbols rather than scaled numerically, so a voice carrying them still plays."
+	description = "method to return a pattern generating all the properties in the panola string; intended for using with supercollider synths. Custom properties whose values are words (e.g. notation properties like @dyn/@art) are not synth controls and are left out of the Pbind, so a voice carrying them still plays every note; the values remain available for notation via customPropertyPattern."
 	[method.asPbind.args]
 	instrument = "name of the synthdef to use in the pattern's \\instrument key"
 	include_custom_properties = "boolean to indicate if the pattern should contain user defined properties as well; if set to false only properties \\instrument, \\midinote, \\dur, \\lag, \\legato, \\amp and optionally \\tempo are extracted"
@@ -929,13 +929,12 @@ Panola {
 				var scale = 1.0;
 				var exclude_property = include_tempo.not.and(stringproperty.compare("tempo") == 0);
 				if (exclude_property.not) {
-					// a custom property whose values are words (e.g. the notation properties @dyn/@art)
-					// can't be scaled arithmetically; pass it through as a Pseq of Symbols so the voice
-					// still plays. Numeric properties keep the original (scaled) behaviour.
-					if (this.customPropertyPattern(stringproperty, 0.0).asStream.all.any({ |v| v.isKindOf(String) })) {
-						mapped_props = mapped_props.add([pbindkey,
-							Pseq(this.customPropertyPattern(stringproperty, "").asStream.all.collect({ |v| v.asSymbol })) ]);
-					} {
+					// string-valued custom properties (e.g. the notation properties @dyn/@art) are not
+					// synth controls, so they are left out of the Pbind: a synth arg must be numeric, and
+					// passing a symbol (especially an empty '') makes SuperCollider drop those notes as
+					// rests. The values remain available for notation via customPropertyPattern. Numeric
+					// properties are scaled and added as before.
+					if (this.customPropertyPattern(stringproperty, 0.0).asStream.all.any({ |v| v.isKindOf(String) }).not) {
 						if (custom_property_defaults.notNil) {
 							if (custom_property_defaults[stringproperty].notNil) {
 								default_val = custom_property_defaults[stringproperty];
