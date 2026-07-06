@@ -116,7 +116,6 @@ PanolaDurationSpeller {
 		^nil;
 	}
 
-	// filled in by later tasks
 	tryTupletDuration { | ql |
 		var cands = [], maxA = options[\maxTupletActual], maxN = options[\maxTupletNormal];
 		noteTypes.do({ | e |
@@ -137,7 +136,7 @@ PanolaDurationSpeller {
 	pr_tupletRank { | c |
 		var common = [[3,2],[5,4],[6,4],[7,4],[7,8],[5,2],[9,8],[3,4],[2,3]];
 		var ci = common.indexOfEqual([c[\actual], c[\normal]]);
-		^[ ci ? 999, c[\actual], c[\normal], this.pr_qlOf(c[\name]).asFloat.neg ];
+		^[ ci ? 999, c[\actual], c[\normal].neg, this.pr_qlOf(c[\name]).asFloat.neg ];
 	}
 	pr_tupletBefore { | a, b |
 		var ra = this.pr_tupletRank(a), rb = this.pr_tupletRank(b);
