@@ -301,9 +301,11 @@ Panola {
 			prop_list.do({
 				| prop |
 				var name = prop['propertyname'];
-				if (prop['type'] != \oneshotproperty) {
-					this.customProperties.put(name, name.asSymbol);
-				}
+				// Register every property form, including the one-shot ^v^ form, so it becomes a
+				// readable key in the Pbind from asPbind/asMidiPbind (an advanced pattern or MSScore
+				// `wrap` can then read \art, \dyn, ... per note). Notes without the property take the
+				// property's default; notation is unaffected (PanolaMEI reads the pattern directly).
+				this.customProperties.put(name, name.asSymbol);
 			});
 		});
 	}
