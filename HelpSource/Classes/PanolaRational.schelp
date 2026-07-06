@@ -1,0 +1,147 @@
+TITLE:: PanolaRational
+summary:: an exact rational number used by Panola's duration spelling
+categories:: Utils
+related:: Classes/PanolaDurationSpeller
+
+DESCRIPTION::
+PanolaRational is a minimal exact rational (teletype::num/den::, always reduced, sign in the numerator,
+denominator positive). It exists because SuperCollider has no rational type and because notation must not
+be treated as floating point. Numerator and denominator are stored as Float-valued integers so the
+arithmetic stays exact without overflowing SuperCollider's 32-bit Integer. It supports the strong::+ - * /::
+operators and the comparison operators, plus construction from an Integer, a decimal String
+(teletype::*fromDecimalString::), or a Float via a limit-denominator continued fraction
+(teletype::*fromFloat::), e.g. teletype::0.3333333:: becomes teletype::1/3::.
+
+
+
+CLASSMETHODS::
+
+METHOD:: new
+create a reduced rational num/den
+
+ARGUMENT:: num
+the numerator
+
+ARGUMENT:: den
+the denominator (default 1)
+
+returns:: a PanolaRational
+METHOD:: fromInteger
+an Integer as n/1
+
+ARGUMENT:: n
+an Integer
+
+returns:: a PanolaRational
+METHOD:: pr_gcd
+the greatest common divisor of two Float-valued integers (Euclid's algorithm), used to reduce fractions
+
+ARGUMENT:: a
+a Float-valued integer
+
+ARGUMENT:: b
+a Float-valued integer
+
+returns:: a Float (the gcd)
+METHOD:: pr_coerce
+coerce a value to a PanolaRational: pass a PanolaRational through, wrap an Integer as n/1, or convert a Float via fromFloat (used by the arithmetic and comparison operators)
+
+ARGUMENT:: x
+a PanolaRational, Integer, or Float
+
+returns:: a PanolaRational
+METHOD:: fromFloat
+the exact rational of a finite Float, with the denominator limited so common values snap to their intended fraction (e.g. 0.3333333 -> 1/3, 0.4 -> 2/5)
+
+ARGUMENT:: x
+a finite Float
+
+ARGUMENT:: maxDenom
+the largest allowed denominator (default 65536)
+
+returns:: a PanolaRational
+METHOD:: fromDecimalString
+parse a decimal String such as "0.625" as an exact rational (5/8)
+
+ARGUMENT:: s
+a decimal String
+
+returns:: a PanolaRational
+
+INSTANCEMETHODS::
+
+METHOD:: num
+the numerator (a Float holding an exact integer)
+
+returns:: a Float
+METHOD:: den
+the denominator (a Float holding an exact positive integer)
+
+returns:: a Float
+METHOD:: pr_init
+initialize this rational from a raw numerator and denominator: force the sign into the numerator (denominator positive) and reduce by the gcd
+
+ARGUMENT:: n
+the raw numerator (a Float)
+
+ARGUMENT:: d
+the raw denominator (a Float)
+
+returns:: this PanolaRational
+METHOD:: limitDenominator
+the closest rational to this value whose denominator is at most maxDenom (CPython Fraction.limit_denominator)
+
+ARGUMENT:: maxDenom
+the largest allowed denominator (default 65536)
+
+returns:: a PanolaRational
+METHOD:: negate
+the negation of this value
+
+returns:: a PanolaRational
+METHOD:: neg
+the negation of this value (alias of negate)
+
+returns:: a PanolaRational
+METHOD:: reciprocal
+den/num as a PanolaRational
+
+returns:: a PanolaRational
+METHOD:: abs
+the absolute value
+
+returns:: a PanolaRational
+METHOD:: isNegative
+whether the value is negative
+
+returns:: true if the value is < 0
+METHOD:: isZero
+whether the value is zero
+
+returns:: true if the value is 0
+METHOD:: numerator
+the numerator as an Integer
+
+returns:: the numerator as an Integer
+METHOD:: denominator
+the denominator as an Integer
+
+returns:: the denominator as an Integer
+METHOD:: asFloat
+the value as a Float
+
+returns:: the value as a Float
+METHOD:: asInteger
+the value truncated toward zero as an Integer
+
+returns:: the value truncated toward zero as an Integer
+METHOD:: asString
+the value as "num/den"
+
+returns:: the value as "num/den"
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::

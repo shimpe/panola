@@ -1,0 +1,241 @@
+TITLE:: PanolaDurationSpeller
+summary:: spell a quarterLength as conventional notation (music21-style)
+categories:: Notation, Utils
+related:: Classes/PanolaRational, Classes/Panola
+
+DESCRIPTION::
+PanolaDurationSpeller maps a single duration in strong::quarterLength:: units (teletype::1.0:: = quarter,
+teletype::0.5:: = eighth, teletype::0.25:: = 16th) to a notation spelling: one or more components, each a
+note value plus dots plus an optional tuplet. It tries, in order, an exact ordinary value, a dotted value,
+a decomposition into several tied components, a tuplet, and (optionally) a large-tuplet fallback, otherwise
+it reports the duration teletype::inexpressible::. All arithmetic is exact (link::Classes/PanolaRational::).
+
+code::
+PanolaDurationSpeller.spell(1.0);    // quarter
+PanolaDurationSpeller.spell(0.75);   // dotted eighth
+PanolaDurationSpeller.spell(1/3);    // eighth with a 3:2 tuplet
+PanolaDurationSpeller.spell(1.25);   // quarter tied to a 16th
+::
+
+strong::Modes.:: In teletype::\exact:: mode (default) the input value is preserved exactly; if no exact
+spelling exists the result is teletype::inexpressible:: (or a precise large tuplet when
+teletype::allowLargeTuplets:: is set). In teletype::\quantize:: mode the value is snapped to a grid within
+a tolerance before spelling; quantization is never implicit. Options (a plain Event) tune the note-type
+range, dots, tuplet limits, and float handling.
+
+
+
+CLASSMETHODS::
+
+METHOD:: initClass
+class initialization: build the noteTypes table (largest note value first), called once by the class library at startup
+
+returns:: nothing (populates noteTypes)
+METHOD:: defaultOptions
+the default options Event (mode, grid, tolerance, maxDots, maxComponents, tuplet limits, float policy)
+
+returns:: an Event
+METHOD:: new
+a speller whose options are defaultOptions merged with the given overrides
+
+ARGUMENT:: options
+an Event overriding any defaultOptions keys, or nil
+
+returns:: a PanolaDurationSpeller
+METHOD:: spell
+convenience: spell ql with a speller built from options
+
+ARGUMENT:: ql
+a quarterLength
+
+ARGUMENT:: options
+an options Event or nil
+
+returns:: a spelling Event
+
+INSTANCEMETHODS::
+
+METHOD:: options
+the effective options Event (defaults merged with any overrides)
+
+returns:: an Event
+METHOD:: pr_init
+initialize this speller's options: start from defaultOptions and merge in any overrides
+
+ARGUMENT:: opts
+an Event of option overrides, or nil
+
+returns:: this PanolaDurationSpeller
+METHOD:: pr_entry
+the noteTypes entry for a note-type name
+
+ARGUMENT:: name
+a note-type Symbol
+
+returns:: an Array [name, meiToken, [num, den]] or nil
+METHOD:: pr_qlOf
+the quarterLength of a note type as a PanolaRational
+
+ARGUMENT:: name
+a note-type Symbol
+
+returns:: a PanolaRational
+METHOD:: pr_meidurOf
+the MEI duration token of a note type
+
+ARGUMENT:: name
+a note-type Symbol
+
+returns:: a String, or nil for note types with no MEI token
+METHOD:: pr_dottedValue
+the quarterLength of a note value carrying the given number of augmentation dots
+
+ARGUMENT:: baseQl
+the undotted quarterLength (a PanolaRational)
+
+ARGUMENT:: dots
+the number of augmentation dots
+
+returns:: a PanolaRational
+METHOD:: pr_component
+build a plain (non-tuplet) component Event for a note value with dots
+
+ARGUMENT:: name
+a note-type Symbol
+
+ARGUMENT:: dots
+the number of augmentation dots
+
+ARGUMENT:: ql
+the component quarterLength (a PanolaRational)
+
+returns:: a component Event
+METHOD:: pr_componentTuplet
+build a component Event carrying a single actual:normal tuplet
+
+ARGUMENT:: name
+a note-type Symbol
+
+ARGUMENT:: ql
+the component quarterLength (a PanolaRational)
+
+ARGUMENT:: actual
+the tuplet actual count
+
+ARGUMENT:: normal
+the tuplet normal count
+
+returns:: a component Event
+METHOD:: pr_spelled
+build a successful spelling Event wrapping the components
+
+ARGUMENT:: ql
+the input quarterLength (a PanolaRational)
+
+ARGUMENT:: components
+an Array of component Events
+
+returns:: a spelling Event (inexpressible: false)
+METHOD:: pr_inexpressible
+build a failed spelling Event carrying a reason
+
+ARGUMENT:: ql
+the input quarterLength (a PanolaRational)
+
+ARGUMENT:: reason
+a String explaining why the duration is inexpressible
+
+returns:: a spelling Event (inexpressible: true)
+METHOD:: normalizeToRational
+convert x to a PanolaRational (Floats via the floatPolicy)
+
+ARGUMENT:: x
+a quarterLength (a PanolaRational, Integer, decimal String, or Float)
+
+returns:: a PanolaRational
+METHOD:: quantizeToGrid
+snap ql to the nearest grid multiple when within tolerance (quantize mode)
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a PanolaRational
+METHOD:: spell
+spell a quarterLength x (a PanolaRational, Integer, decimal String, or Float) as a notation spelling
+
+ARGUMENT:: x
+the quarterLength to spell
+
+returns:: a spelling Event: on success (inexpressible: false, ql:, inferred: true, components: [ ... ]); otherwise (inexpressible: true, ql:, reason:)
+METHOD:: trySimpleDuration
+a single ordinary-note-value component equal to ql, or nil
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a component Event or nil
+METHOD:: tryDottedDuration
+a single dotted-note component equal to ql, or nil
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a component Event or nil
+METHOD:: tryTupletDuration
+a single note-under-a-tuplet component equal to ql (the best-ranked candidate), or nil
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a component Event or nil
+METHOD:: pr_tupletRank
+a sort key for a tuplet candidate (common ratios first, then a power-of-two-normal preference)
+
+ARGUMENT:: c
+a tuplet candidate Event (name, actual, normal)
+
+returns:: an Array sort key
+METHOD:: pr_tupletBefore
+whether tuplet candidate a should sort before candidate b
+
+ARGUMENT:: a
+a tuplet candidate Event
+
+ARGUMENT:: b
+a tuplet candidate Event
+
+returns:: a Boolean
+METHOD:: splitIntoComponents
+decompose ql into tied ordinary/dotted components, or nil if it cannot be split exactly
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: an Array of component Events, or nil
+METHOD:: pr_findLargestAssignableAtMost
+the largest single ordinary/dotted component not exceeding the remaining duration (used by the greedy split)
+
+ARGUMENT:: remaining
+the remaining quarterLength (a PanolaRational)
+
+returns:: a component Event or nil
+METHOD:: tryLargeTupletFallback
+spell the whole ql as one large tuplet when allowLargeTuplets is set, or nil
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a component Event or nil
+METHOD:: pr_inexpressibleReason
+the reason a duration cannot be spelled (too small vs. cannot decompose exactly)
+
+ARGUMENT:: ql
+a quarterLength (a PanolaRational)
+
+returns:: a String
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::
