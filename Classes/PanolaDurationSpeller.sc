@@ -171,7 +171,20 @@ PanolaDurationSpeller {
 		});
 		^best;
 	}
-	tryLargeTupletFallback { | ql | ^nil; }
+	tryLargeTupletFallback { | ql |
+		if (options[\allowLargeTuplets].not) { ^nil };
+		noteTypes.do({ | e |
+			var base = this.pr_qlOf(e[0]);
+			var ratio = ql / base;                 // = normal / actual
+			var normal = ratio.numerator, actual = ratio.denominator;
+			if ((actual != normal) and: { actual >= 1 } and: { normal >= 1 }
+				and: { actual <= options[\maxLargeTupletActual] }
+				and: { normal <= options[\maxLargeTupletNormal] }) {
+				^this.pr_componentTuplet(e[0], ql, actual, normal);
+			};
+		});
+		^nil;
+	}
 	pr_inexpressibleReason { | ql |
 		var minQl = this.pr_qlOf(options[\minNoteType]);
 		if (ql < minQl) { ^"smaller than minimum supported note value" };
