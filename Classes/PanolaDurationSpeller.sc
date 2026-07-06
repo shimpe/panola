@@ -146,7 +146,31 @@ PanolaDurationSpeller {
 		});
 		^false;
 	}
-	splitIntoComponents { | ql | ^nil; }
+	splitIntoComponents { | ql |
+		var remaining = ql, comps = [], maxComp = options[\maxComponents];
+		while { remaining.isZero.not } {
+			var c = this.pr_findLargestAssignableAtMost(remaining);
+			if (c.isNil) { ^nil };
+			comps = comps.add(c);
+			remaining = remaining - c[\ql];
+			if (comps.size > maxComp) { ^nil };
+		};
+		^comps;
+	}
+
+	pr_findLargestAssignableAtMost { | remaining |
+		var best = nil, bestQl = nil, maxDots = options[\maxDots];
+		noteTypes.do({ | e |
+			var base = this.pr_qlOf(e[0]);
+			(0..maxDots).do({ | dots |
+				var v = this.pr_dottedValue(base, dots);
+				if ((v <= remaining) and: { bestQl.isNil or: { v > bestQl } }) {
+					bestQl = v; best = this.pr_component(e[0], dots, v);
+				};
+			});
+		});
+		^best;
+	}
 	tryLargeTupletFallback { | ql | ^nil; }
 	pr_inexpressibleReason { | ql |
 		var minQl = this.pr_qlOf(options[\minNoteType]);
