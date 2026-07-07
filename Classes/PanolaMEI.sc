@@ -97,9 +97,13 @@ PanolaMEI {
 				var sp = c[\spelling];
 				if (sp[\inexpressible]) {
 					("PanolaMEI: inexpressible piece " ++ c[\durationQL].asString ++ " — using decompose").warn;
-					decompose.(c[\durationQL].asFloat).do({ |pc| out = out.add([pc[0], pc[1], durToBeats.(pc[0], pc[1])]) });
+					decompose.(c[\durationQL].asFloat).do({ |pc| out = out.add([pc[0], pc[1], durToBeats.(pc[0], pc[1]), nil]) });
 				} {
-					sp[\components].do({ |x| out = out.add([x[\meidur], x[\dots], x[\ql].asFloat]) });
+					sp[\components].do({ |x|
+						var tup = x[\tuplets].isEmpty.if({ nil },
+							{ ( num: x[\tuplets][0][\actual], numbase: x[\tuplets][0][\normal] ) });
+						out = out.add([x[\meidur], x[\dots], x[\ql].asFloat, tup]);
+					});
 				};
 			});
 			out;
@@ -223,16 +227,17 @@ PanolaMEI {
 						if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
 					while { remaining > eps } {
 						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos;
+						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos, frecs = [];
 						pieces.do({ |pc, c|
 							var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
 							if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
 								tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
 							};
-							measures[measures.size-1] = measures[measures.size-1].add(
-								( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger, rest: ev[\rest], beatPos: subpos ));
+							frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger,
+								rest: ev[\rest], beatPos: subpos, tup: pc[3] ));
 							subpos = subpos + pc[2];
 						});
+						wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r) });
 						pos = pos + take; remaining = remaining - take; firstFrag = false;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
 					};
@@ -281,6 +286,26 @@ PanolaMEI {
 				} { result = result ++ rec[\str]; i = i + 1 };
 			};
 			result;
+		};
+		// group consecutive fragment-records that share a tuplet ratio into one <tuplet> bracket record
+		// (beamed inside via beamRun); records with a nil ratio pass through unchanged. This is music21's
+		// makeTupletBrackets over split fragments.
+		var wrapTuplets = { |recs|
+			var out = [], i = 0;
+			while { i < recs.size } {
+				var rec = recs[i], tup = rec[\tup];
+				if (tup.notNil) {
+					var run = [rec], j = i + 1;
+					while { (j < recs.size) and: { recs[j][\tup].notNil }
+						and: { recs[j][\tup][\num] == tup[\num] } and: { recs[j][\tup][\numbase] == tup[\numbase] } } {
+						run = run.add(recs[j]); j = j + 1;
+					};
+					out = out.add(( str: "<tuplet num=\"" ++ tup[\num] ++ "\" numbase=\"" ++ tup[\numbase] ++ "\">"
+						++ beamRun.(run) ++ "</tuplet>", md: 0, rest: false, beatPos: run[0][\beatPos], tuplet: true ));
+					i = j;
+				} { out = out.add(rec); i = i + 1 };
+			};
+			out;
 		};
 		// one tuplet group -> <tuplet num numbase> at written values, beamable members beamed inside
 		var tupletMEI = { |unit, k|
