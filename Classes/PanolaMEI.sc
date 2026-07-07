@@ -214,7 +214,7 @@ PanolaMEI {
 						inBar = container.notNil and: { (pos + container) <= (bb + eps) },
 						canDonor = inBar and: { donor.notNil } and: { donor[\kind] == \normal }
 							and: { (donor[\ev][\beats] + eps) >= remainder },
-						canRest = inBar and: { canDonor.not };
+						canRest = inBar and: { canDonor.not } and: { donor.isNil or: { donor[\ev][\rest] == true } };
 					if (canDonor or: { canRest }) {
 						var frecs = [], compSp = PanolaDurationSpeller.spell(PanolaRational.fromFloat(remainder)),
 							dev = canDonor.if({ donor[\ev] }, { nil }),
