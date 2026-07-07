@@ -11,7 +11,9 @@ no notion of barlines / key / clef, so those are supplied here; durations are sp
 metrical boundaries of a link::Classes/PanolaMeter:: via link::Classes/PanolaMeterSplitter:: (a note breaks
 at any interior boundary stronger than the one it starts on, so a note crossing a barline or a strong
 interior beat becomes several tied pieces) and the pieces are tied — this replaces the old greedy
-duration decomposition. A complete explicit teletype::*m/d:: tuplet is emitted atomically unless its span
+duration decomposition. An strong::additive numerator:: (teletype::"2+2+3/8"::) sets those interior
+boundaries to the group divisions, so the bar splits and beams as strong::2+2+3:: and prints an additive
+meter signature; a plain teletype::"7/8":: stays ungrouped. A complete explicit teletype::*m/d:: tuplet is emitted atomically unless its span
 strong::crosses a barline:: (see below), while an
 strong::incomplete:: teletype::*m/d:: tuplet is now strong::completed:: the way music21 does — by splitting
 the following note or rest into the teletype::<tuplet>:: bracket: the completing member(s) are spelled at
@@ -39,10 +41,10 @@ PanolaMEI {
 
 	/*
 	[classmethod.scoreAsMEI]
-	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows) or a too-short follower stays a warned partial bracket; a complete tuplet crossing a barline is split into tied per-measure teletype::<tuplet>:: brackets, a straddling member cut at the barline into tied sub-tuplet notes, falling back to the whole bracket plus a warning when a fragment is not expressible at the tuplet ratio), per-note dynamics/articulation, and slurs."
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows) or a too-short follower stays a warned partial bracket; a complete tuplet crossing a barline is split into tied per-measure teletype::<tuplet>:: brackets, a straddling member cut at the barline into tied sub-tuplet notes, falling back to the whole bracket plus a warning when a fragment is not expressible at the tuplet ratio), per-note dynamics/articulation, and slurs. An strong::additive meter:: numerator (teletype::\"2+2+3/8\"::) groups the bar so the splitting, per-group beaming, and the meter signature all follow the grouping, while a plain teletype::\"7/8\":: stays ungrouped."
 	[classmethod.scoreAsMEI.args]
 	voices = "an Array of Panola instances (one per staff, top to bottom)"
-	meter = "time signature as a String, e.g. \"4/4\""
+	meter = "time signature as a String, e.g. \"4/4\". An strong::additive numerator:: (teletype::\"2+2+3/8\"::) groups the bar: the durations split at the group boundaries, beam per group, and print as an strong::additive meter signature::. A plain numerator (teletype::\"7/8\"::) stays ungrouped — a plain signature with the default beaming."
 	key = "key Symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
 	clefs = "an Array of clef Symbols (\\treble \\bass \\alto \\tenor), one per staff (nil defaults to all \\treble)"
 	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
