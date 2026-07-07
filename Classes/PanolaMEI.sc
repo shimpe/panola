@@ -216,7 +216,9 @@ PanolaMEI {
 			srt.collect({ |c| cm = c[\meter] ? cm; ck = c[\key] ? ck; ( measure: c[\measure] ? 1, meter: cm, key: ck ) });
 		};
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
-		var voiceToMeasures = { |events, bb, k, pmeter|
+		// keyFor is a function measureNumber(1-based) -> key Symbol; each note is spelled with the current
+		// measure's key (keyFor.(measures.size)), so a mid-piece key change re-spells accidentals per bar.
+		var voiceToMeasures = { |events, bb, keyFor, pmeter|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
 			var units, ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
 			// pair @slur^start/end/endstart^ into slur markers. one open slur at a time (no nesting);
@@ -265,7 +267,7 @@ PanolaMEI {
 						unit[\members].do({ |mev|
 							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: mev[\dynMark] )) };
 							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, sub + 1) };
-							frecs = frecs.add(( str: meiElement.(mev, mev[\meidur], mev[\dots], nil, k),
+							frecs = frecs.add(( str: meiElement.(mev, mev[\meidur], mev[\dots], nil, keyFor.(measures.size)),
 								md: mev[\meidur].asInteger, rest: mev[\rest], beatPos: sub,
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
 							sub = sub + mev[\beats];
@@ -285,7 +287,7 @@ PanolaMEI {
 									(hasPrev and: { hasNext }).if({ "m" },
 										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) }) }),
 								compEv = compRest.if({ restEv }, { dev });
-							frecs = frecs.add(( str: meiElement.(compEv, x[\meidur], x[\dots], ctie, k),
+							frecs = frecs.add(( str: meiElement.(compEv, x[\meidur], x[\dots], ctie, keyFor.(measures.size)),
 								md: x[\meidur].asInteger, rest: compRest, beatPos: sub,
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
 							sub = sub + x[\ql].asFloat;
@@ -343,7 +345,7 @@ PanolaMEI {
 												tie = firstPiece.if({ nil }, { "t" });
 											if (ok) {
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, md, dt, tie, k), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: meiElement.(mev, md, dt, tie, keyFor.(measures.size)), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 											};
 											sub = sub + mb; mb = 0;
 											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
@@ -353,7 +355,7 @@ PanolaMEI {
 											f.isNil.if({ ok = false }, {
 												var tie = firstPiece.if({ "i" }, { "m" });
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, f[\meidur], f[\dots], tie, k), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: meiElement.(mev, f[\meidur], f[\dots], tie, keyFor.(measures.size)), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
 											});
 										});
@@ -386,7 +388,7 @@ PanolaMEI {
 								("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (fragment not expressible at the tuplet ratio)").warn;
 							};
 							measures[measures.size-1] = measures[measures.size-1].add(
-								( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
+								( str: tupletMEI.(unit, keyFor.(measures.size)), md: 0, rest: false, beatPos: pos, tuplet: true ));
 							pos = pos + tbeats;
 							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
 						};
@@ -405,7 +407,7 @@ PanolaMEI {
 									tie = (hasPrev and: { hasNext }).if({ "m" },
 										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) });
 								};
-								frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger,
+								frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, keyFor.(measures.size)), md: pc[0].asInteger,
 									rest: ev[\rest], beatPos: subpos, tup: pc[3] ));
 								subpos = subpos + pc[2];
 							});
@@ -551,10 +553,15 @@ PanolaMEI {
 		var keyFor = { |i| atFor.(i)[\key] };
 		var m0 = meterFor.(1), k0 = keyFor.(1);
 		clefs = clefs ? voices.collect({ \treble });
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m0[\bb], k0, m0[\pmeter]) });
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m0[\bb], keyFor, m0[\pmeter]) });
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
 		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(m0[\bb])) }; v });
 		nm.do({ |i|
+			// mid-section key change: emit a <scoreDef key.sig> before this measure when the key differs from
+			// the previous one. i is 0-based (measure number = i+1); i > 0 keeps measure 1 in the top scoreDef.
+			if ((i > 0) and: { keyFor.(i + 1) != keyFor.(i) }) {
+				body = body ++ "<scoreDef key.sig=\"" ++ keyToSig.(keyFor.(i + 1)) ++ "\"/>";
+			};
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
 			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], m0[\groupStarts]) ++ "</layer></staff>" });
 			perVoice.do({ |v, s|
