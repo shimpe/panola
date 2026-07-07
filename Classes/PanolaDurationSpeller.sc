@@ -67,7 +67,7 @@ PanolaDurationSpeller {
 
 	/*
 	[classmethod.defaultOptions]
-	description = "the default options Event (mode, grid, tolerance, maxDots, maxComponents, tuplet limits, float policy)"
+	description = "the default options Event (mode, grid, tolerance, maxDots, maxComponents, tuplet limits, max denominator)"
 	[classmethod.defaultOptions.returns]
 	what = "an Event"
 	*/
@@ -75,7 +75,7 @@ PanolaDurationSpeller {
 		^(mode: \exact, grid: PanolaRational(1, 512), tolerance: 1e-5, maxDots: 4,
 			maxComponents: 16, maxTupletActual: 13, maxTupletNormal: 13, allowLargeTuplets: false,
 			maxLargeTupletActual: 1024, maxLargeTupletNormal: 1024, minNoteType: '2048th',
-			floatPolicy: \limitDenominator, maxDenominator: 65536);
+			maxDenominator: 65536);
 	}
 
 	/*
@@ -205,7 +205,7 @@ PanolaDurationSpeller {
 
 	/*
 	[method.normalizeToRational]
-	description = "convert x to a PanolaRational (Floats via the floatPolicy)"
+	description = "convert x to a PanolaRational (a Float via a limit-denominator continued fraction, capped at maxDenominator)"
 	[method.normalizeToRational.args]
 	x = "a quarterLength (a PanolaRational, Integer, decimal String, or Float)"
 	[method.normalizeToRational.returns]
@@ -215,9 +215,7 @@ PanolaDurationSpeller {
 		if (x.isKindOf(PanolaRational)) { ^x };
 		if (x.isKindOf(String)) { ^PanolaRational.fromDecimalString(x) };
 		if (x.isInteger) { ^PanolaRational(x, 1) };
-		^(options[\floatPolicy] == \limitDenominator).if(
-			{ PanolaRational.fromFloat(x, options[\maxDenominator]) },
-			{ PanolaRational.fromFloat(x, 1.15e18) });
+		^PanolaRational.fromFloat(x, options[\maxDenominator]);
 	}
 
 	/*

@@ -32,7 +32,7 @@ class initialization: build the noteTypes table (largest note value first), call
 
 returns:: nothing (populates noteTypes)
 METHOD:: defaultOptions
-the default options Event (mode, grid, tolerance, maxDots, maxComponents, tuplet limits, float policy)
+the default options Event (mode, grid, tolerance, maxDots, maxComponents, tuplet limits, max denominator)
 
 returns:: an Event
 METHOD:: new
@@ -147,7 +147,7 @@ a String explaining why the duration is inexpressible
 
 returns:: a spelling Event (inexpressible: true)
 METHOD:: normalizeToRational
-convert x to a PanolaRational (Floats via the floatPolicy)
+convert x to a PanolaRational (a Float via a limit-denominator continued fraction, capped at maxDenominator)
 
 ARGUMENT:: x
 a quarterLength (a PanolaRational, Integer, decimal String, or Float)
