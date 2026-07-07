@@ -345,7 +345,7 @@ PanolaMEI {
 												tie = firstPiece.if({ nil }, { "t" });
 											if (ok) {
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, md, dt, tie, keyFor.(measures.size)), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: meiElement.(mev, md, dt, tie, keyFor.(measures.size + (buckets.size - 1))), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 											};
 											sub = sub + mb; mb = 0;
 											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
@@ -355,7 +355,7 @@ PanolaMEI {
 											f.isNil.if({ ok = false }, {
 												var tie = firstPiece.if({ "i" }, { "m" });
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, f[\meidur], f[\dots], tie, keyFor.(measures.size)), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: meiElement.(mev, f[\meidur], f[\dots], tie, keyFor.(measures.size + (buckets.size - 1))), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
 											});
 										});
