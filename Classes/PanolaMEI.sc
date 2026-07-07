@@ -460,7 +460,11 @@ PanolaMEI {
 			var units = [], i = 0, eps = 1e-6, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
 			while { i < events.size } {
 				var ev = events[i];
-				if ((ev[\mult] == 1) and: { ev[\div] == 1 }) {
+				// a degenerate *m/d ratio (after gcd, one side is 1) is not a real tuplet: 1:d or m:1 has
+				// integer duration, so route it through \normal (splits-and-ties at barlines) not \tuplet.
+				var g = ev[\mult].gcd(ev[\div]);
+				var degenerate = ((ev[\div] / g) == 1) or: { (ev[\mult] / g) == 1 };
+				if (((ev[\mult] == 1) and: { ev[\div] == 1 }) or: { degenerate }) {
 					units = units.add(( kind: \normal, ev: ev )); i = i + 1;
 				} {
 					var m = ev[\mult], d = ev[\div], members = [], acc = 0.0, closed = false;
