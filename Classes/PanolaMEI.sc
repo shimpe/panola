@@ -212,20 +212,20 @@ PanolaMEI {
 			while { ui < units.size } {
 				var unit = units[ui], consumedDonor = false, completed = false;
 				// music21-style completion: an incomplete *m/d run spells its remainder as tuplet member(s)
-				// that join the bracket — tied from the next note/rest, or filled with rests at a bar-end.
+				// that join the bracket, by SPLITTING the following note/rest (which must exceed the remainder).
+				// music21 never fabricates a rest: a trailing / no-donor / too-short-follower run stays partial.
 				if ((unit[\kind] == \tuplet) and: { unit[\complete].not }) {
 					var container = containers.detect({ |cc| cc >= (unit[\beats] - eps) }),
 						remainder = container.notNil.if({ container - unit[\beats] }, { 0.0 }),
 						donor = ((ui + 1) < units.size).if({ units[ui + 1] }, { nil }),
 						inBar = container.notNil and: { (pos + container) <= (bb + eps) },
 						canDonor = inBar and: { donor.notNil } and: { donor[\kind] == \normal }
-							and: { (donor[\ev][\beats] + eps) >= remainder },
-						canRest = inBar and: { canDonor.not } and: { donor.isNil or: { donor[\ev][\rest] == true } };
-					if (canDonor or: { canRest }) {
+							and: { (donor[\ev][\beats] + eps) >= remainder };
+					if (canDonor) {
 						var frecs = [], compSp = PanolaDurationSpeller.spell(PanolaRational.fromFloat(remainder)),
-							dev = canDonor.if({ donor[\ev] }, { nil }),
-							compRest = canDonor.if({ dev[\rest] }, { true }),
-							hasRemainder = canDonor.if({ (dev[\beats] - remainder) > eps }, { false }),
+							dev = donor[\ev],
+							compRest = dev[\rest],
+							hasRemainder = (dev[\beats] - remainder) > eps,
 							restEv = ( rest: true ), sub = pos;
 						// (i) the unit's original members, at their written values, as tuplet-ratio records
 						unit[\members].do({ |mev|
@@ -236,8 +236,8 @@ PanolaMEI {
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
 							sub = sub + mev[\beats];
 						});
-						// (ii) the completing member(s) from the leading remainder: donor's pitch (a note ties out,
-						// its remainder is re-emitted tied), a donor rest ties nothing, or plain rests at a bar-end.
+						// (ii) the completing member(s) from the leading remainder, split off the real donor: a note
+						// donor ties out (its remainder re-emitted tied); a rest donor contributes rest member(s).
 						compSp[\components].do({ |x, ci|
 							var hasPrev = (ci > 0),
 								hasNext = (ci < (compSp[\components].size - 1)) or: { hasRemainder },
