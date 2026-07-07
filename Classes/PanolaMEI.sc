@@ -264,6 +264,12 @@ PanolaMEI {
 						});
 						// (ii) the completing member(s) from the leading remainder, split off the real donor: a note
 						// donor ties out (its remainder re-emitted tied); a rest donor contributes rest member(s).
+						// A note donor's @dyn/@slur belong at ITS onset (the completing member at `sub`), not
+						// the tied remainder -- record here and clear from the reduced remainder in (iii).
+						if (compRest.not) {
+							if (dev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: dev[\dynMark] )) };
+							if ((dev[\slur] ? "") != "") { applySlur.(dev[\slur], measures.size, sub + 1) };
+						};
 						compSp[\components].do({ |x, ci|
 							var hasPrev = (ci > 0),
 								hasNext = (ci < (compSp[\components].size - 1)) or: { hasRemainder },
@@ -282,7 +288,7 @@ PanolaMEI {
 						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
 						if (canDonor) {
 							if (hasRemainder) {
-								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not) );
+								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "") );
 							} { consumedDonor = true };
 						};
 						completed = true;
