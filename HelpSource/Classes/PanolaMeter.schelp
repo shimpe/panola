@@ -1,0 +1,127 @@
+TITLE:: PanolaMeter
+summary:: the metric boundary hierarchy of a time signature
+categories:: Notation, Utils
+related:: Classes/PanolaMeterSplitter, Classes/PanolaDurationSpeller
+
+DESCRIPTION::
+PanolaMeter turns a time signature into a strength-ranked list of metric boundaries (each an offset in
+quarterLength with an integer strength and a label), used by link::Classes/PanolaMeterSplitter:: to decide
+where a note must break to respect the meter. Stronger boundaries (measure 100, the 4/4 half-measure 80,
+compound beats 70, additive groups 75, ordinary beats 60, subdivisions 30-40) matter more. It handles
+simple, compound (teletype::6/8:: teletype::9/8:: teletype::12/8::), and additive meters
+(teletype::PanolaMeter(7, 8, [2,2,3])::). All offsets are exact link::Classes/PanolaRational::.
+
+
+
+CLASSMETHODS::
+
+METHOD:: new
+build a meter for a time signature (numerator/denominator); pass groups only for an additive meter
+
+ARGUMENT:: numerator
+the time signature numerator (beats per measure)
+
+ARGUMENT:: denominator
+the time signature denominator (the beat note value: 4, 8, 16, ...)
+
+ARGUMENT:: groups
+for an additive meter, an Array of denominator-unit counts per group (e.g. teletype::[2,2,3]:: for 7/8); nil for simple and compound meters
+
+returns:: a PanolaMeter
+METHOD:: isCompound
+whether a meter is compound: the numerator is divisible by 3 and greater than 3, and the denominator is 8 or 16
+
+ARGUMENT:: num
+the numerator
+
+ARGUMENT:: den
+the denominator
+
+returns:: a Boolean
+
+INSTANCEMETHODS::
+
+METHOD:: numerator
+the time signature numerator (the number of beats per measure), e.g. 4 in 4/4
+
+returns:: an Integer
+METHOD:: denominator
+the time signature denominator (the beat note value), e.g. 4 in 4/4
+
+returns:: an Integer
+METHOD:: groups
+for an additive meter, the Array of denominator-unit counts per group (e.g. teletype::[2,2,3]:: for 7/8); nil for simple and compound meters
+
+returns:: an Array of Integers, or nil
+METHOD:: measureLengthQL
+the length of one measure in quarterLength
+
+returns:: a link::Classes/PanolaRational::
+METHOD:: boundaries
+the strength-ranked metric boundary list: Events of the form teletype::(offsetQL: PanolaRational, strength: Integer, label: String):: sorted by offset, one per offset (the strongest is kept at each)
+
+returns:: an Array of boundary Events sorted by offset
+METHOD:: pr_init
+initialize the meter: store the numerator, denominator and groups, compute the measure length, and build the boundary list
+
+ARGUMENT:: num
+the numerator
+
+ARGUMENT:: den
+the denominator
+
+ARGUMENT:: grps
+the additive groups Array, or nil
+
+returns:: this PanolaMeter
+METHOD:: pr_unit
+the quarterLength of one denominator-unit (teletype::4 / denominator::), e.g. 0.5 for an eighth in an /8 meter
+
+returns:: a link::Classes/PanolaRational::
+METHOD:: pr_build
+build the strength-ranked boundary list: add the measure-start and measure-end boundaries, then the interior boundaries for a simple, compound, or additive meter, then deduplicate and sort
+
+returns:: an Array of boundary Events sorted by offset
+METHOD:: pr_simple
+append the beat boundaries (with the 4/4 half-measure and 2/x weightings) and the half-unit subdivisions for a simple meter to the boundary list
+
+ARGUMENT:: bs
+the List of boundaries being built (mutated in place)
+
+ARGUMENT:: unit
+the quarterLength of one denominator-unit
+
+returns:: nothing meaningful (it appends to bs)
+METHOD:: pr_compound
+append the compound-beat boundaries (every three denominator-units) and the eighth-subbeat boundaries for a compound meter to the boundary list
+
+ARGUMENT:: bs
+the List of boundaries being built (mutated in place)
+
+ARGUMENT:: unit
+the quarterLength of one denominator-unit
+
+returns:: nothing meaningful (it appends to bs)
+METHOD:: pr_additive
+append the additive-group boundaries (at the end of each group except the last) and the within-group subdivisions for an additive meter (following the groups Array) to the boundary list
+
+ARGUMENT:: bs
+the List of boundaries being built (mutated in place)
+
+ARGUMENT:: unit
+the quarterLength of one denominator-unit
+
+returns:: nothing meaningful (it appends to bs)
+METHOD:: pr_sortUnique
+deduplicate the boundaries by offset (keeping the strongest boundary at each offset) and return them sorted by ascending offset
+
+ARGUMENT:: bs
+the List of boundaries to deduplicate
+
+returns:: an Array of boundary Events sorted by offset
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::

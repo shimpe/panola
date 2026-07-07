@@ -1,0 +1,237 @@
+TITLE:: PanolaMeterSplitter
+summary:: split a note into tied, spelled components that respect the meter
+categories:: Notation, Utils
+related:: Classes/PanolaMeter, Classes/PanolaDurationSpeller
+
+DESCRIPTION::
+PanolaMeterSplitter takes a note (onset + duration in quarterLength, in a link::Classes/PanolaMeter::) and
+splits it into tied components that respect the meter: a note may span boundaries no stronger than the one
+it starts on, but must break at any stronger interior boundary (the onset-strength rule). Each piece is
+spelled with link::Classes/PanolaDurationSpeller:: and the pieces are tied. Tuplet-contained notes split
+on the tuplet grid, and an optimization pass avoids dots across strong boundaries and merges needless ties.
+Notation-only, exact by default (quantization is opt-in).
+
+code::
+PanolaMeterSplitter.split(( onsetQL: PanolaRational(3,2), durationQL: PanolaRational(1,1) ), PanolaMeter(4,4));
+// 1.5 + 1.0 in 4/4 -> eighth tied to eighth (it crosses the 2.0 half-measure)
+::
+
+
+
+CLASSMETHODS::
+
+METHOD:: new
+a splitter whose options are defaultOptions merged with the given overrides
+
+ARGUMENT:: options
+an Event overriding any defaultOptions keys, or nil
+
+returns:: a PanolaMeterSplitter
+METHOD:: defaultOptions
+the default options Event: which boundary kinds force a split (teletype::splitAtMeasureBoundaries:: teletype::splitAtBeatBoundaries:: teletype::splitAtStrongSubBeatBoundaries:: teletype::splitAtTupletBoundaries::), the fallback threshold teletype::greedyMinBoundaryStrength::, the teletype::dotBoundaryThreshold:: for the dot-avoidance pass, the quantization settings (teletype::quantizeMode:: teletype::quantizeGrid:: teletype::quantizeTolerance::), and the teletype::spellingOptions:: forwarded to link::Classes/PanolaDurationSpeller::
+
+returns:: an Event
+METHOD:: split
+convenience: build a splitter with the given options and split a note in one call
+
+ARGUMENT:: noteEvent
+an Event with strong::onsetQL:: (a link::Classes/PanolaRational::, default 0), strong::durationQL:: (a PanolaRational), an optional strong::isRest:: (a Boolean), and an optional strong::tupletContext:: (teletype::startQL::, teletype::totalDurationQL::, teletype::numberNotesActual::, teletype::numberNotesNormal::) for a tuplet-contained note
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+ARGUMENT:: options
+an Event overriding any defaultOptions keys, or nil
+
+returns:: an Array of SplitComponent Events, each with teletype::startQL::, teletype::durationQL::, teletype::spelling:: (from link::Classes/PanolaDurationSpeller::), teletype::isRest::, and the tie flags teletype::tieFromPrevious:: / teletype::tieToNext::
+
+INSTANCEMETHODS::
+
+METHOD:: options
+the effective options Event (defaultOptions merged with any overrides passed to the constructor)
+
+returns:: an Event
+METHOD:: pr_init
+initialize teletype::options:: from defaultOptions, overlaying any supplied overrides key by key
+
+ARGUMENT:: opts
+an Event of option overrides, or nil
+
+returns:: this PanolaMeterSplitter
+METHOD:: split
+split a note into tied, spelled components that respect the meter. It applies the onset-strength rule (a piece may span boundaries no stronger than the one it starts on, but must break at any stronger interior boundary), routes tuplet-contained notes onto the tuplet grid, and runs the optimization pass
+
+ARGUMENT:: noteEvent
+an Event with strong::onsetQL:: (a link::Classes/PanolaRational::, default 0), strong::durationQL:: (a PanolaRational), an optional strong::isRest:: (a Boolean), and an optional strong::tupletContext:: (teletype::startQL::, teletype::totalDurationQL::, teletype::numberNotesActual::, teletype::numberNotesNormal::) for a tuplet-contained note
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events, each with teletype::startQL::, teletype::durationQL::, teletype::spelling:: (from link::Classes/PanolaDurationSpeller::), teletype::isRest::, and the tie flags teletype::tieFromPrevious:: / teletype::tieToNext::
+METHOD:: pr_prepareInput
+normalize a note event (default the onset to 0 and teletype::isRest:: to false, carry the tuplet context) and, when teletype::quantizeMode:: is teletype::\grid::, snap the onset and end to the quantize grid within the tolerance
+
+ARGUMENT:: ev
+the raw note Event (onsetQL, durationQL, optional isRest, optional tupletContext)
+
+returns:: a normalized note Event
+METHOD:: pr_onsetStrength
+the strength of the boundary lying exactly at the given onset, or 0 when the onset falls on no boundary (a metrically weak onset)
+
+ARGUMENT:: onset
+the onset offset (a link::Classes/PanolaRational::)
+
+ARGUMENT:: boundaries
+the boundary Events to search
+
+returns:: an Integer strength
+METHOD:: pr_policyAllows
+whether the current options permit a split at a boundary of the given label kind (measure/beat/subdivision/tuplet), consulting the matching teletype::splitAt...Boundaries:: option
+
+ARGUMENT:: label
+the boundary label String (e.g. teletype::measure-start::, teletype::beat::, teletype::eighth-subbeat::, teletype::tuplet-boundary::)
+
+returns:: a Boolean
+METHOD:: pr_splitPoints
+the sorted, unique split offsets for the span from start to end, applying the onset-strength rule: an interior boundary forces a split when it is stronger than the onset strength and its kind is policy-allowed, or when it is at least strength 90
+
+ARGUMENT:: start
+the span start offset (a link::Classes/PanolaRational::)
+
+ARGUMENT:: end
+the span end offset (a link::Classes/PanolaRational::)
+
+ARGUMENT:: boundaries
+the boundary Events to consider as candidate split points
+
+ARGUMENT:: onsetBoundaries
+the boundary set the onset strength is measured against (optional; defaults to teletype::boundaries::). The tuplet-contained path passes the meter boundaries only, so a note sitting on an interior tuplet grid point (metrically weak) is still forced to break at the equal-strength grid lines it crosses
+
+returns:: an Array of split offsets (link::Classes/PanolaRational::) from start to end inclusive, sorted and unique
+METHOD:: pr_sortUniqueRationals
+deduplicate an Array of link::Classes/PanolaRational:: values by their exact string form and return them sorted ascending
+
+ARGUMENT:: arr
+an Array of PanolaRationals
+
+returns:: a sorted Array of unique PanolaRationals
+METHOD:: pr_spellAndTie
+spell each consecutive gap between the split points with link::Classes/PanolaDurationSpeller:: and build the SplitComponent list, tying interior pieces together (never tying rests)
+
+ARGUMENT:: pts
+the sorted split offsets (an Array of link::Classes/PanolaRational::)
+
+ARGUMENT:: ev
+the note Event (supplies teletype::isRest::)
+
+returns:: an Array of SplitComponent Events (teletype::startQL::, teletype::durationQL::, teletype::spelling::, teletype::isRest::, teletype::tieFromPrevious::, teletype::tieToNext::)
+METHOD:: pr_splitBasic
+split a non-tuplet note at the meter boundaries (via the onset-strength rule) and spell/tie the pieces; if any piece is inexpressible, defer to the fallback chain
+
+ARGUMENT:: ev
+the prepared note Event
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_allSpellable
+whether every component spelled to an expressible notation (none is teletype::inexpressible::)
+
+ARGUMENT:: comps
+an Array of SplitComponent Events
+
+returns:: a Boolean
+METHOD:: pr_fallback
+the fallback chain for an unspellable basic split: try the greedy split first, then the smallest-grid split if that still leaves an inexpressible piece
+
+ARGUMENT:: ev
+the prepared note Event
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_fallbackAggressive
+greedy fallback: split at every meter boundary at least teletype::greedyMinBoundaryStrength:: strong, then spell and tie the pieces
+
+ARGUMENT:: ev
+the prepared note Event
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_splitAtSmallestGrid
+last-resort fallback: split the span into equal pieces of the smallest allowed note type, then spell and tie them (guarantees an expressible, sum-exact result)
+
+ARGUMENT:: ev
+the prepared note Event
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_minNoteTypeQL
+the quarterLength of the smallest allowed note type, taken from teletype::spellingOptions[\minNoteType]:: when set, otherwise teletype::2048th::
+
+returns:: a link::Classes/PanolaRational::
+METHOD:: pr_tupletBoundaries
+the tuplet grid boundaries for a tuplet context: one boundary at each of the teletype::numberNotesActual:: subdivisions, with the endpoints at strength 90 and the interior grid lines at strength 50, all labelled teletype::tuplet-boundary::
+
+ARGUMENT:: tc
+the tuplet context Event (teletype::startQL::, teletype::totalDurationQL::, teletype::numberNotesActual::)
+
+returns:: an Array of boundary Events
+METHOD:: pr_splitTupletContained
+split a tuplet-contained note on the merged meter-plus-tuplet grid, measuring the onset strength against the meter only so a metrically weak mid-tuplet onset still breaks at the tuplet grid lines it crosses
+
+ARGUMENT:: ev
+the prepared note Event (with a teletype::tupletContext::)
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_optimize
+the optimization pass over a split result: first re-split components whose dotted spelling hides a strong boundary, then merge adjacent components where it is safe
+
+ARGUMENT:: comps
+an Array of SplitComponent Events
+
+ARGUMENT:: ev
+the prepared note Event
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_avoidDotsAcrossStrong
+re-split any component whose single dotted spelling hides an interior boundary at least teletype::dotBoundaryThreshold:: strong, splitting that piece at the meter boundaries and carrying the original piece's tie flags onto the new outer edges
+
+ARGUMENT:: comps
+an Array of SplitComponent Events
+
+ARGUMENT:: ev
+the prepared note Event
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+METHOD:: pr_mergeIfSafe
+merge two adjacent components when the merged span hides no boundary stronger than the note's true onset strength and spells as a single value, so it is the exact inverse of the split and never recombines across a boundary the split forced
+
+ARGUMENT:: comps
+an Array of SplitComponent Events
+
+ARGUMENT:: ev
+the prepared note Event (supplies the reference onset)
+
+ARGUMENT:: meter
+a link::Classes/PanolaMeter::
+
+returns:: an Array of SplitComponent Events
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::
