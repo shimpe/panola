@@ -10,13 +10,18 @@ no notion of barlines / key / clef, so those are supplied here; durations are sp
 metrical boundaries of a link::Classes/PanolaMeter:: via link::Classes/PanolaMeterSplitter:: (a note breaks
 at any interior boundary stronger than the one it starts on, so a note crossing a barline or a strong
 interior beat becomes several tied pieces) and the pieces are tied — this replaces the old greedy
-duration decomposition. A complete explicit teletype::*m/d:: tuplet is emitted atomically, while an
+duration decomposition. A complete explicit teletype::*m/d:: tuplet is emitted atomically unless its span
+strong::crosses a barline:: (see below), while an
 strong::incomplete:: teletype::*m/d:: tuplet is now strong::completed:: the way music21 does — by splitting
 the following note or rest into the teletype::<tuplet>:: bracket: the completing member(s) are spelled at
 the tuplet ratio with link::Classes/PanolaDurationSpeller::, a following note ties out (its remainder is
 re-emitted tied) and a following rest is split so its leading part becomes a tuplet rest. music21 never
-fabricates a rest, so a strong::trailing:: incomplete tuplet (nothing follows), a too-short follower, or a
-tuplet that would cross a barline is left as a warned partial bracket. Eighths-and-shorter
+fabricates a rest, so a strong::trailing:: incomplete tuplet (nothing follows) or a too-short follower is
+left as a warned partial bracket. A complete tuplet whose span strong::crosses a barline:: is now
+strong::split:: into tied per-measure teletype::<tuplet>:: brackets: a member straddling the barline is cut
+there into tied sub-tuplet notes, each fragment spelled at the tuplet ratio with
+link::Classes/PanolaDurationSpeller::; if a straddling fragment is not expressible at the tuplet ratio it
+falls back to the whole bracket in one bar plus a warning. Eighths-and-shorter
 are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, and per-note
 teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
@@ -33,7 +38,7 @@ Also reachable as teletype::aPanola.asMEI(meter, key, clef):: (see link::Classes
 CLASSMETHODS::
 
 METHOD:: scoreAsMEI
-render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows), a too-short follower, or a barline-crossing tuplet stays a warned partial bracket), per-note dynamics/articulation, and slurs.
+render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows) or a too-short follower stays a warned partial bracket; a complete tuplet crossing a barline is split into tied per-measure teletype::<tuplet>:: brackets, a straddling member cut at the barline into tied sub-tuplet notes, falling back to the whole bracket plus a warning when a fragment is not expressible at the tuplet ratio), per-note dynamics/articulation, and slurs.
 
 ARGUMENT:: voices
 an Array of Panola instances (one per staff, top to bottom)
