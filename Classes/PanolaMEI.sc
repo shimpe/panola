@@ -274,7 +274,7 @@ PanolaMEI {
 						unit[\members].do({ |mev|
 							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: mev[\dynMark] )) };
 							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, sub + 1) };
-							frecs = frecs.add(( str: meiElement.(mev, mev[\meidur], mev[\dots], nil, keyFor.(measures.size)),
+							frecs = frecs.add(( str: clefEl.(mev[\clef]) ++ meiElement.(mev, mev[\meidur], mev[\dots], nil, keyFor.(measures.size)),
 								md: mev[\meidur].asInteger, rest: mev[\rest], beatPos: sub,
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
 							sub = sub + mev[\beats];
@@ -294,7 +294,7 @@ PanolaMEI {
 									(hasPrev and: { hasNext }).if({ "m" },
 										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) }) }),
 								compEv = compRest.if({ restEv }, { dev });
-							frecs = frecs.add(( str: meiElement.(compEv, x[\meidur], x[\dots], ctie, keyFor.(measures.size)),
+							frecs = frecs.add(( str: (ci == 0).if({ clefEl.(dev[\clef]) }, { "" }) ++ meiElement.(compEv, x[\meidur], x[\dots], ctie, keyFor.(measures.size)),
 								md: x[\meidur].asInteger, rest: compRest, beatPos: sub,
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
 							sub = sub + x[\ql].asFloat;
@@ -305,7 +305,7 @@ PanolaMEI {
 						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
 						if (canDonor) {
 							if (hasRemainder) {
-								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "") );
+								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "").put(\clef, "") );
 							} { consumedDonor = true };
 						};
 						completed = true;
@@ -352,7 +352,7 @@ PanolaMEI {
 												tie = firstPiece.if({ nil }, { "t" });
 											if (ok) {
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, md, dt, tie, keyFor.(measures.size + (buckets.size - 1))), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: firstPiece.if({ clefEl.(mev[\clef]) }, { "" }) ++ meiElement.(mev, md, dt, tie, keyFor.(measures.size + (buckets.size - 1))), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 											};
 											sub = sub + mb; mb = 0;
 											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
@@ -362,7 +362,7 @@ PanolaMEI {
 											f.isNil.if({ ok = false }, {
 												var tie = firstPiece.if({ "i" }, { "m" });
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: meiElement.(mev, f[\meidur], f[\dots], tie, keyFor.(measures.size + (buckets.size - 1))), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+													( str: firstPiece.if({ clefEl.(mev[\clef]) }, { "" }) ++ meiElement.(mev, f[\meidur], f[\dots], tie, keyFor.(measures.size + (buckets.size - 1))), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
 												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
 											});
 										});
