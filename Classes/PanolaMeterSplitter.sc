@@ -25,9 +25,10 @@ PanolaMeterSplitter {
 
 	split { | noteEvent, meter |
 		var ev = this.pr_prepareInput(noteEvent);
-		^(ev[\tupletContext].notNil).if(
+		var comps = (ev[\tupletContext].notNil).if(
 			{ this.pr_splitTupletContained(ev, meter) },
 			{ this.pr_splitBasic(ev, meter) });
+		^this.pr_optimize(comps, ev, meter);
 	}
 
 	pr_prepareInput { | ev |
@@ -147,5 +148,68 @@ PanolaMeterSplitter {
 		var start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL];
 		var merged = meter.boundaries ++ this.pr_tupletBoundaries(ev[\tupletContext]);
 		^this.pr_spellAndTie(this.pr_splitPoints(start, end, merged, meter.boundaries), ev);
+	}
+
+	pr_optimize { | comps, ev, meter |
+		comps = this.pr_avoidDotsAcrossStrong(comps, ev, meter);
+		comps = this.pr_mergeIfSafe(comps, ev, meter);
+		^comps;
+	}
+
+	// re-split a component whose (single) dotted spelling hides a boundary >= dotBoundaryThreshold
+	pr_avoidDotsAcrossStrong { | comps, ev, meter |
+		var out = [];
+		comps.do({ | c |
+			var sp = c[\spelling], dotted = (sp[\inexpressible].not) and: { sp[\components].size == 1 }
+				and: { sp[\components][0][\dots] > 0 };
+			var cStart = c[\startQL], cEnd = c[\startQL] + c[\durationQL];
+			var hidesStrong = meter.boundaries.any({ | b |
+				(cStart < b[\offsetQL]) and: { b[\offsetQL] < cEnd } and: { b[\strength] >= options[\dotBoundaryThreshold] } });
+			if (dotted and: { hidesStrong }) {
+				// split this piece as its own note at the meter boundaries and inherit c's tie flags
+				var sub = this.pr_splitPoints(cStart, cEnd, meter.boundaries);
+				var subComps = this.pr_spellAndTie(sub, ev);
+				// fix outer tie flags: first inherits tieFromPrevious, last inherits tieToNext
+				subComps = subComps.collect({ | sc, i |
+					var e = sc.copy;
+					if (ev[\isRest].not) {
+						e[\tieFromPrevious] = (i > 0).if({ true }, { c[\tieFromPrevious] });
+						e[\tieToNext] = (i < (subComps.size - 1)).if({ true }, { c[\tieToNext] });
+					};
+					e;
+				});
+				out = out ++ subComps;
+			} {
+				out = out.add(c);
+			};
+		});
+		^out;
+	}
+
+	// merge two adjacent pieces when the merged span hides no strong boundary and spells cleanly
+	pr_mergeIfSafe { | comps, ev, meter |
+		var out = [], i = 0, speller = PanolaDurationSpeller.new(options[\spellingOptions]);
+		while { i < comps.size } {
+			var cur = comps[i], merged = false;
+			if ((i + 1) < comps.size) {
+				var nxt = comps[i + 1];
+				var mStart = cur[\startQL], mEnd = nxt[\startQL] + nxt[\durationQL], mDur = mEnd - mStart;
+				// weigh hidden boundaries against the NOTE's true onset strength (the reference the
+				// split used), not the merged fragment's local start -- otherwise an interior fragment
+				// that begins on a strong boundary inflates the reference and re-hides a same-strength
+				// boundary the note's real onset had forced a split at (e.g. 7/8[2,2,3] e+q+e).
+				var mOnsetStr = this.pr_onsetStrength(ev[\onsetQL], meter.boundaries);
+				var hidesStrong = meter.boundaries.any({ | b |
+					(mStart < b[\offsetQL]) and: { b[\offsetQL] < mEnd } and: { b[\strength] > mOnsetStr } });
+				var sp = speller.spell(mDur);
+				if (hidesStrong.not and: { sp[\inexpressible].not } and: { sp[\components].size == 1 }) {
+					out = out.add(( startQL: mStart, durationQL: mDur, spelling: sp, isRest: ev[\isRest],
+						tieFromPrevious: cur[\tieFromPrevious], tieToNext: nxt[\tieToNext] ));
+					i = i + 2; merged = true;
+				};
+			};
+			if (merged.not) { out = out.add(cur); i = i + 1 };
+		};
+		^out;
 	}
 }
