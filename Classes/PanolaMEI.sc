@@ -52,7 +52,7 @@ PanolaMEI {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, meter = "4/4", key = \Cmajor, clefs = nil, braces = nil |
+		| voices, changes, clefs = nil, braces = nil |
 
 		// ---- pure helpers -------------------------------------------------
 		var parseOne = { |s|
@@ -206,6 +206,14 @@ PanolaMEI {
 			});
 			( count: numStr, num: num, den: den, groups: groups, bb: bb, groupStarts: starts,
 				pmeter: PanolaMeter(num, den, groups) );
+		};
+		// compile a `changes` list [ ( measure:, meter:, key: ) ... ] into carry-forward per-measure lookups.
+		var resolveChanges = { |changes|
+			var srt = (changes ? [( measure: 1, meter: "4/4", key: \Cmajor )]).copy
+				.sort({ |a, b| a[\measure] < b[\measure] });
+			var cm = "4/4", ck = \Cmajor;
+			// resolved: each entry's full (meter, key) after applying carry-forward
+			srt.collect({ |c| cm = c[\meter] ? cm; ck = c[\key] ? ck; ( measure: c[\measure] ? 1, meter: cm, key: ck ) });
 		};
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k, pmeter|
@@ -535,15 +543,20 @@ PanolaMEI {
 		};
 
 		// ---- body ---------------------------------------------------------
-		var perVoice, nm, m, body = "";
+		var perVoice, nm, body = "";
+		var resolved = resolveChanges.(changes);
+		var atFor = { |i| var r = resolved.select({ |c| c[\measure] <= i }).last;
+			r ? ( measure: 1, meter: "4/4", key: \Cmajor ) };
+		var meterFor = { |i| parseMeter.(atFor.(i)[\meter]) };
+		var keyFor = { |i| atFor.(i)[\key] };
+		var m0 = meterFor.(1), k0 = keyFor.(1);
 		clefs = clefs ? voices.collect({ \treble });
-		m = parseMeter.(meter);
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m[\bb], key, m[\pmeter]) });
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m0[\bb], k0, m0[\pmeter]) });
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
-		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(m[\bb])) }; v });
+		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(m0[\bb])) }; v });
 		nm.do({ |i|
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
-			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], m[\groupStarts]) ++ "</layer></staff>" });
+			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], m0[\groupStarts]) ++ "</layer></staff>" });
 			perVoice.do({ |v, s|
 				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
 					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.round(0.0001).asString });
@@ -561,7 +574,7 @@ PanolaMEI {
 			body = body ++ "</measure>";
 		});
 		^("<?xml version=\"1.0\" encoding=\"UTF-8\"?><mei xmlns=\"http://www.music-encoding.org/ns/mei\" meiversion=\"4.0.0\"><music><body><mdiv><score>"
-			++ "<scoreDef meter.count=\"" ++ m[\count] ++ "\" meter.unit=\"" ++ m[\den] ++ "\" key.sig=\"" ++ keyToSig.(key) ++ "\">"
+			++ "<scoreDef meter.count=\"" ++ m0[\count] ++ "\" meter.unit=\"" ++ m0[\den] ++ "\" key.sig=\"" ++ keyToSig.(k0) ++ "\">"
 			++ staffGrp.(voices.size, clefs, braces) ++ "</scoreDef><section>" ++ body ++ "</section></score></mdiv></body></music></mei>");
 	}
 }

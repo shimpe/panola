@@ -1047,7 +1047,7 @@ Panola {
 	*/
 	asMEI {
 		| meter="4/4", key=\Cmajor, clef=\treble |
-		^PanolaMEI.scoreAsMEI([this], meter, key, [clef], nil);
+		^PanolaMEI.scoreAsMEI([this], [( measure: 1, meter: meter, key: key )], [clef], nil);
 	}
 
 	/*
@@ -1063,8 +1063,8 @@ Panola {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, meter="4/4", key=\Cmajor, clefs=nil, braces=nil |
-		^PanolaMEI.scoreAsMEI(voices, meter, key, clefs, braces);
+		| voices, changes, clefs=nil, braces=nil |
+		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces);
 	}
 }
 
