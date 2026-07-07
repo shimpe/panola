@@ -95,7 +95,41 @@ PanolaMeterSplitter {
 
 	pr_splitBasic { | ev, meter |
 		var start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL];
-		^this.pr_spellAndTie(this.pr_splitPoints(start, end, meter.boundaries), ev);
+		var comps = this.pr_spellAndTie(this.pr_splitPoints(start, end, meter.boundaries), ev);
+		^this.pr_allSpellable(comps).if({ comps }, { this.pr_fallback(ev, meter) });
+	}
+
+	pr_allSpellable { | comps | ^comps.every({ | c | c[\spelling][\inexpressible].not }); }
+
+	pr_fallback { | ev, meter |
+		var comps = this.pr_fallbackAggressive(ev, meter);
+		^this.pr_allSpellable(comps).if({ comps }, { this.pr_splitAtSmallestGrid(ev) });
+	}
+
+	pr_fallbackAggressive { | ev, meter |
+		var start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL], minS = options[\greedyMinBoundaryStrength];
+		var pts = [start];
+		meter.boundaries.do({ | b |
+			if ((start < b[\offsetQL]) and: { b[\offsetQL] < end } and: { b[\strength] >= minS }) {
+				pts = pts.add(b[\offsetQL]);
+			};
+		});
+		pts = pts.add(end);
+		^this.pr_spellAndTie(this.pr_sortUniqueRationals(pts), ev);
+	}
+
+	pr_splitAtSmallestGrid { | ev |
+		var grid = this.pr_minNoteTypeQL, start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL];
+		var pts = [start], cur = start + grid;
+		while { cur < end } { pts = pts.add(cur); cur = cur + grid };
+		pts = pts.add(end);
+		^this.pr_spellAndTie(this.pr_sortUniqueRationals(pts), ev);
+	}
+
+	pr_minNoteTypeQL {
+		var so = options[\spellingOptions], name = (so.notNil and: { so[\minNoteType].notNil }).if(
+			{ so[\minNoteType] }, { '2048th' });
+		^PanolaDurationSpeller.new.pr_qlOf(name);
 	}
 
 	pr_tupletBoundaries { | tc |
