@@ -218,9 +218,16 @@ PanolaMEI {
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		// keyFor is a function measureNumber(1-based) -> key Symbol; each note is spelled with the current
 		// measure's key (keyFor.(measures.size)), so a mid-piece key change re-spells accidentals per bar.
-		var voiceToMeasures = { |events, bb, keyFor, pmeter|
+		var voiceToMeasures = { |events, meterFor, keyFor|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
 			var units, ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
+			// variable bar lengths: bb (bar length in QL) and pmeter (the PanolaMeter for the splitter)
+			// belong to the CURRENT measure. They start at measure 1 and are re-read from
+			// meterFor.(measures.size) whenever a new measure begins (see refreshMeter, called after every
+			// `measures = measures.add([])`). A constant meter makes meterFor return the same descriptor
+			// each measure, so bb/pmeter never change and the output stays byte-identical.
+			var md0 = meterFor.(1), bb = md0[\bb], pmeter = md0[\pmeter];
+			var refreshMeter = { var d = meterFor.(measures.size); bb = d[\bb]; pmeter = d[\pmeter]; };
 			// pair @slur^start/end/endstart^ into slur markers. one open slur at a time (no nesting);
 			// endstart closes the open slur and opens a new one at the same note. m/ts = 1-based measure
 			// and beat of the marker note. warn + recover on any mismatch.
@@ -294,7 +301,7 @@ PanolaMEI {
 						});
 						wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r) });
 						pos = pos + container;
-						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0; refreshMeter.() };
 						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
 						if (canDonor) {
 							if (hasRemainder) {
@@ -373,7 +380,10 @@ PanolaMEI {
 								wrapTuplets.(bucket).do({ |r| measures[measures.size - 1] = measures[measures.size - 1].add(r) });
 								if (bi < (split.size - 1)) { measures = measures.add([]) };
 							});
+							// pos advances over the crossed barlines using the STARTING bar's bb (buildSplit
+							// closed over that bb); then re-read the meter for the measure we've landed in.
 							pos = (pos + tbeats) - ((split.size - 1) * bb);
+							refreshMeter.();
 						} {
 							// non-crossing, or a fragment could not be spelled: atomic bracket (+ warn if it crosses).
 							// give each tuplet member its real sub-tuplet beat offset, so dynamics/slur endpoints
@@ -390,7 +400,7 @@ PanolaMEI {
 							measures[measures.size-1] = measures[measures.size-1].add(
 								( str: tupletMEI.(unit, keyFor.(measures.size)), md: 0, rest: false, beatPos: pos, tuplet: true ));
 							pos = pos + tbeats;
-							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
+							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0); refreshMeter.() };
 						};
 					} {
 						var ev = unit[\ev];
@@ -413,7 +423,7 @@ PanolaMEI {
 							});
 							wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r) });
 							pos = pos + take; remaining = remaining - take; firstFrag = false;
-							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0; refreshMeter.() };
 						};
 					};
 				};
@@ -553,17 +563,31 @@ PanolaMEI {
 		var keyFor = { |i| atFor.(i)[\key] };
 		var m0 = meterFor.(1), k0 = keyFor.(1);
 		clefs = clefs ? voices.collect({ \treble });
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m0[\bb], keyFor, m0[\pmeter]) });
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), meterFor, keyFor) });
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
-		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(m0[\bb])) }; v });
+		// pad short voices with a whole-measure rest sized to THAT measure's bar length (meterFor of the
+		// 1-based number of the measure being appended).
+		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(meterFor.(v[\measures].size + 1)[\bb])) }; v });
 		nm.do({ |i|
-			// mid-section key change: emit a <scoreDef key.sig> before this measure when the key differs from
-			// the previous one. i is 0-based (measure number = i+1); i > 0 keeps measure 1 in the top scoreDef.
-			if ((i > 0) and: { keyFor.(i + 1) != keyFor.(i) }) {
-				body = body ++ "<scoreDef key.sig=\"" ++ keyToSig.(keyFor.(i + 1)) ++ "\"/>";
+			// mid-section meter/key change: emit ONE <scoreDef> before this measure carrying whichever of
+			// meter.count/meter.unit and key.sig actually changed from the previous measure. i is 0-based
+			// (measure number = i+1); i > 0 keeps measure 1 in the top scoreDef. A constant meter+key never
+			// triggers this (byte-identical). meters compare by their display numerator (count) and unit (den),
+			// so 4/4 -> 2+2/4 (same bar length, different signature) still emits a new signature.
+			if (i > 0) {
+				var mPrev = meterFor.(i), mCur = meterFor.(i + 1);
+				var kPrev = keyFor.(i), kCur = keyFor.(i + 1);
+				var meterChanged = (mCur[\count] != mPrev[\count]) or: { mCur[\den] != mPrev[\den] };
+				var keyChanged = kCur != kPrev;
+				if (meterChanged or: { keyChanged }) {
+					var attrs = "";
+					if (meterChanged) { attrs = attrs ++ " meter.count=\"" ++ mCur[\count] ++ "\" meter.unit=\"" ++ mCur[\den] ++ "\"" };
+					if (keyChanged) { attrs = attrs ++ " key.sig=\"" ++ keyToSig.(kCur) ++ "\"" };
+					body = body ++ "<scoreDef" ++ attrs ++ "/>";
+				};
 			};
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
-			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], m0[\groupStarts]) ++ "</layer></staff>" });
+			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], meterFor.(i + 1)[\groupStarts]) ++ "</layer></staff>" });
 			perVoice.do({ |v, s|
 				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
 					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.round(0.0001).asString });
