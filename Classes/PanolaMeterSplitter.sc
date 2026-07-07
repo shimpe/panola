@@ -25,7 +25,9 @@ PanolaMeterSplitter {
 
 	split { | noteEvent, meter |
 		var ev = this.pr_prepareInput(noteEvent);
-		^this.pr_splitBasic(ev, meter);        // Task 5 will route tuplet-context / candidates here
+		^(ev[\tupletContext].notNil).if(
+			{ this.pr_splitTupletContained(ev, meter) },
+			{ this.pr_splitBasic(ev, meter) });
 	}
 
 	pr_prepareInput { | ev |
@@ -56,9 +58,12 @@ PanolaMeterSplitter {
 			{ true } { false };
 	}
 
-	// split points for the span, using the onset-strength rule
-	pr_splitPoints { | start, end, boundaries |
-		var onsetStr = this.pr_onsetStrength(start, boundaries), pts = [start];
+	// split points for the span, using the onset-strength rule. onsetBoundaries (optional) is the
+	// boundary set the onset is weighed against; defaults to boundaries. The tuplet-contained path
+	// passes the meter boundaries only, so a note sitting on an interior tuplet grid point (metrically
+	// weak) is still forced to break at the equal-strength grid lines it crosses.
+	pr_splitPoints { | start, end, boundaries, onsetBoundaries |
+		var onsetStr = this.pr_onsetStrength(start, onsetBoundaries ? boundaries), pts = [start];
 		boundaries.do({ | b |
 			if ((start < b[\offsetQL]) and: { b[\offsetQL] < end }) {
 				var mandatory = (b[\strength] > onsetStr) and: { this.pr_policyAllows(b[\label]) };
@@ -91,5 +96,22 @@ PanolaMeterSplitter {
 	pr_splitBasic { | ev, meter |
 		var start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL];
 		^this.pr_spellAndTie(this.pr_splitPoints(start, end, meter.boundaries), ev);
+	}
+
+	pr_tupletBoundaries { | tc |
+		var bs = [], start = tc[\startQL], total = tc[\totalDurationQL], act = tc[\numberNotesActual];
+		var unit = total / PanolaRational(act, 1);
+		(0..act).do({ | i |
+			var off = start + (unit * PanolaRational(i, 1));
+			var str = ((i == 0) or: { i == act }).if({ 90 }, { 50 });
+			bs = bs.add(( offsetQL: off, strength: str, label: "tuplet-boundary" ));
+		});
+		^bs;
+	}
+
+	pr_splitTupletContained { | ev, meter |
+		var start = ev[\onsetQL], end = ev[\onsetQL] + ev[\durationQL];
+		var merged = meter.boundaries ++ this.pr_tupletBoundaries(ev[\tupletContext]);
+		^this.pr_spellAndTie(this.pr_splitPoints(start, end, merged, meter.boundaries), ev);
 	}
 }
