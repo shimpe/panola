@@ -266,23 +266,90 @@ PanolaMEI {
 				};
 				if (completed.not) {
 					if (unit[\kind] == \tuplet) {
-						// tuplet groups are atomic: never decomposed or split-and-tied across a barline
-						var tbeats = unit[\beats];
+						// a complete *m/d tuplet is atomic UNLESS its span crosses a barline: then a straddling
+						// member is cut at the barline into tied sub-tuplet notes and each per-measure slice is
+						// bracketed on its own (music21-style makeTupletBrackets over split fragments).
+						var tbeats = unit[\beats],
+							crosses = (tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps },
+							ratio = ( num: unit[\num], numbase: unit[\numbase] ),
+							// dyn/slur are collected here during the walk and only committed if the split
+							// succeeds, so a fallback (which re-adds them atomically) never double-adds.
+							pendDyn = [], pendSlur = [],
+							// build per-measure record buckets by walking members, splitting a straddling
+							// member at the barline. Returns nil if any straddling fragment is inexpressible
+							// or not a single component at the unit's ratio -> caller falls back.
+							buildSplit = {
+								var buckets = [[]], sub = pos, ok = true, speller = PanolaDurationSpeller.new,
+									fragAt = { |d|   // spell d beats -> (meidur, dots) at the unit's ratio, or nil
+										var sp = speller.spell(PanolaRational.fromFloat(d)), c;
+										(sp[\inexpressible] or: { sp[\components].size != 1 }).if({ nil }, {
+											c = sp[\components][0];
+											((c[\tuplets].size == 1)
+												and: { c[\tuplets][0][\actual] == ratio[\num] }
+												and: { c[\tuplets][0][\normal] == ratio[\numbase] }).if(
+												{ ( meidur: c[\meidur], dots: c[\dots] ) }, { nil }); });
+									};
+								unit[\members].do({ |mev|
+									var mb = mev[\beats], firstPiece = true;
+									// dyn/slur at the member onset (measure = base + current bucket index)
+									if (mev[\dynMark].notNil) { pendDyn = pendDyn.add(( measure: measures.size + (buckets.size - 1), tstamp: sub + 1, mark: mev[\dynMark] )) };
+									if ((mev[\slur] ? "") != "") { pendSlur = pendSlur.add([ mev[\slur], measures.size + (buckets.size - 1), sub + 1 ]) };
+									while { (mb > eps) and: { ok } } {
+										var room = bb - sub;
+										(mb <= (room + eps)).if({
+											// the (remaining) member fits in this bar
+											var md = firstPiece.if({ mev[\meidur] }, { var f = fragAt.(mb); f.isNil.if({ ok = false; nil }, { f[\meidur] }) }),
+												dt = firstPiece.if({ mev[\dots] }, { var f = fragAt.(mb); f.isNil.if({ 0 }, { f[\dots] }) }),
+												tie = firstPiece.if({ nil }, { "t" });
+											if (ok) {
+												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
+													( str: meiElement.(mev, md, dt, tie, k), md: md.asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+											};
+											sub = sub + mb; mb = 0;
+											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
+										}, {
+											// the member straddles the barline: emit `room` beats here (tie), cross over
+											var f = fragAt.(room);
+											f.isNil.if({ ok = false }, {
+												var tie = firstPiece.if({ "i" }, { "m" });
+												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
+													( str: meiElement.(mev, f[\meidur], f[\dots], tie, k), md: f[\meidur].asInteger, rest: mev[\rest], beatPos: sub, tup: ratio ));
+												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
+											});
+										});
+									};
+								});
+								ok.if({ buckets }, { nil });
+							},
+							split = crosses.if({ buildSplit.value }, { nil });
+						if (split.notNil) {
+							// commit dyn/slur (only now that the split succeeded), then emit each per-measure
+							// bucket through wrapTuplets, advancing pos across the barlines it crossed
+							pendDyn.do({ |dd| dynams = dynams.add(dd) });
+							pendSlur.do({ |ss| applySlur.(ss[0], ss[1], ss[2]) });
+							split.do({ |bucket, bi|
+								wrapTuplets.(bucket).do({ |r| measures[measures.size - 1] = measures[measures.size - 1].add(r) });
+								if (bi < (split.size - 1)) { measures = measures.add([]) };
+							});
+							pos = (pos + tbeats) - ((split.size - 1) * bb);
+						} {
+							// non-crossing, or a fragment could not be spelled: atomic bracket (+ warn if it crosses).
 							// give each tuplet member its real sub-tuplet beat offset, so dynamics/slur endpoints
-							// land on the right note (a slur inside one tuplet must not collapse to a point)
+							// land on the right note (a slur inside one tuplet must not collapse to a point).
 							unit[\members].inject(0.0, { |macc, mev|
 								var mts = pos + macc + 1;
 								if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: mts, mark: mev[\dynMark] )) };
 								if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, mts) };
 								macc + mev[\beats];
 							});
-						if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
-							("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
+							if (crosses) {
+								("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (fragment not expressible at the tuplet ratio)").warn;
+							};
+							measures[measures.size-1] = measures[measures.size-1].add(
+								( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
+							pos = pos + tbeats;
+							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
 						};
-						measures[measures.size-1] = measures[measures.size-1].add(
-							( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
-						pos = pos + tbeats;
-						if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
 					} {
 						var ev = unit[\ev];
 						var remaining = ev[\beats], firstFrag = true;
