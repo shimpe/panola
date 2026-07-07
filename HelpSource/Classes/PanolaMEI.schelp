@@ -1,14 +1,18 @@
 TITLE:: PanolaMEI
 summary:: render Panola voice(s) to an MEI music-notation document
 categories:: Notation, Utils
-related:: Classes/Panola, Classes/MSScore
+related:: Classes/Panola, Classes/MSScore, Classes/PanolaMeterSplitter, Classes/PanolaMeter
 
 DESCRIPTION::
 Pure transform from Panola voice(s) + score preferences (time signature, key, clef per staff, brace
 grouping) to an MEI document (a String), usable by any MEI renderer (Verovio, ...). Panola itself has
-no notion of barlines / key / clef, so those are supplied here; notes crossing a barline are split and
-tied, eighths-and-shorter are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups,
-and per-note teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
+no notion of barlines / key / clef, so those are supplied here; durations are split meter-aware at the
+metrical boundaries of a link::Classes/PanolaMeter:: via link::Classes/PanolaMeterSplitter:: (a note breaks
+at any interior boundary stronger than the one it starts on, so a note crossing a barline or a strong
+interior beat becomes several tied pieces) and the pieces are tied — this replaces the old greedy
+duration decomposition; explicit teletype::*m/d:: tuplets are still emitted atomically. Eighths-and-shorter
+are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, and per-note
+teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
 
 Typical use:
@@ -23,7 +27,7 @@ Also reachable as teletype::aPanola.asMEI(meter, key, clef):: (see link::Classes
 CLASSMETHODS::
 
 METHOD:: scoreAsMEI
-render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including ties across barlines, per-beat beaming, tuplets, per-note dynamics/articulation, and slurs.
+render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets, per-note dynamics/articulation, and slurs.
 
 ARGUMENT:: voices
 an Array of Panola instances (one per staff, top to bottom)
