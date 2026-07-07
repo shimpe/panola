@@ -412,12 +412,15 @@ PanolaMEI {
 							var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos, frecs = [];
 							pieces.do({ |pc, c|
 								var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) },
-									hasPrev = (ev[\tieIn] == true) or: { isFirst.not }, hasNext = isLast.not, tie = nil;
+									hasPrev = (ev[\tieIn] == true) or: { isFirst.not }, hasNext = isLast.not, tie = nil, noteStr;
 								if (ev[\rest].not) {
 									tie = (hasPrev and: { hasNext }).if({ "m" },
 										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) });
 								};
-								frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, keyFor.(measures.size)), md: pc[0].asInteger,
+								// an @clef on this note leads its FIRST fragment only (a split note's clef precedes its first piece)
+								noteStr = meiElement.(ev, pc[0], pc[1], tie, keyFor.(measures.size));
+								if (isFirst) { noteStr = clefEl.(ev[\clef]) ++ noteStr };
+								frecs = frecs.add(( str: noteStr, md: pc[0].asInteger,
 									rest: ev[\rest], beatPos: subpos, tup: pc[3] ));
 								subpos = subpos + pc[2];
 							});
@@ -434,6 +437,15 @@ PanolaMEI {
 			( measures: measures, dynams: dynams, slurs: slurs );
 		};
 		var clefMap = IdentityDictionary[\treble->["G","2"], \bass->["F","4"], \alto->["C","3"], \tenor->["C","4"]];
+		// inline clef change: a note's non-empty @clef ("treble"/"bass"/"alto"/"tenor") yields a
+		// <clef shape line/> that prefixes its emitted str (a split note's first fragment, or a tuplet
+		// member). An empty @clef yields "" (a no-op, so a clef-free note is byte-identical); an unknown
+		// value warns and yields "" (no clef emitted).
+		var clefEl = { |clefStr|
+			var s = clefStr ? "", cm = (s == "").if({ nil }, { clefMap[s.asSymbol] });
+			((s != "") and: { cm.isNil }).if({ ("PanolaMEI: unknown clef '" ++ s ++ "'; ignored").warn });
+			cm.isNil.if({ "" }, { "<clef shape=\"" ++ cm[0] ++ "\" line=\"" ++ cm[1] ++ "\"/>" });
+		};
 		var emptyRest = { |bb|
 			var recs = [], p = 0.0;
 			decompose.(bb).do({ |pc|
@@ -498,7 +510,7 @@ PanolaMEI {
 		// one tuplet group -> <tuplet num numbase> at written values, beamable members beamed inside
 		var tupletMEI = { |unit, k|
 			var recs = unit[\members].collect({ |ev|
-				( str: meiElement.(ev, ev[\meidur], ev[\dots], nil, k), md: ev[\meidur], rest: ev[\rest] );
+				( str: clefEl.(ev[\clef]) ++ meiElement.(ev, ev[\meidur], ev[\dots], nil, k), md: ev[\meidur], rest: ev[\rest] );
 			});
 			"<tuplet num=\"" ++ unit[\num] ++ "\" numbase=\"" ++ unit[\numbase] ++ "\">" ++ beamRun.(recs) ++ "</tuplet>";
 		};
@@ -546,10 +558,12 @@ PanolaMEI {
 			var dyns = panola.customPropertyPattern("dyn", "").asStream.all;
 			var arts = panola.customPropertyPattern("art", "").asStream.all;
 			var slurs = panola.customPropertyPattern("slur", "").asStream.all;
+			var clefsP = panola.customPropertyPattern("clef", "").asStream.all;
 			names.collect({ |nm, i|
 				var e = parseName.(nm), d = parseDur.(durs[i]);
 				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
 				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString; e[\slur] = slurs[i].asString;
+				e[\clef] = clefsP[i].asString;
 				e;
 			});
 		};
