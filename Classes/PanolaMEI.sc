@@ -80,6 +80,26 @@ PanolaMEI {
 			out;
 		};
 		var durToBeats = { |md, dt| (4 / md) * (2 - (1 / (2 ** dt))) };
+		// meter-aware replacement for decompose on a single per-measure chunk: run the splitter and
+		// flatten its SplitComponent spellings to [durToken, dots, beatsFloat] fragments. Falls back to
+		// decompose for any (unexpected, for dyadic input) inexpressible piece. onsetBeats/durBeats are
+		// Float quarterLength within the current measure.
+		var meterPieces = { |onsetBeats, durBeats, isRest, pmeter|
+			var comps = PanolaMeterSplitter.split(
+				( onsetQL: PanolaRational.fromFloat(onsetBeats),
+				  durationQL: PanolaRational.fromFloat(durBeats), isRest: isRest ), pmeter);
+			var out = [];
+			comps.do({ |c|
+				var sp = c[\spelling];
+				if (sp[\inexpressible]) {
+					("PanolaMEI: inexpressible piece " ++ c[\durationQL].asString ++ " — using decompose").warn;
+					decompose.(c[\durationQL].asFloat).do({ |pc| out = out.add([pc[0], pc[1], durToBeats.(pc[0], pc[1])]) });
+				} {
+					sp[\components].do({ |x| out = out.add([x[\meidur], x[\dots], x[\ql].asFloat]) });
+				};
+			});
+			out;
+		};
 		var artCode = { |name|
 			IdentityDictionary[
 				\staccato->"stacc", \stacc->"stacc", \staccatissimo->"stacciss", \stacciss->"stacciss",
@@ -148,7 +168,7 @@ PanolaMEI {
 		};
 		var barBeats = { |m| var p = m.split($/); p[0].asInteger * (4.0 / p[1].asInteger) };
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
-		var voiceToMeasures = { |events, bb, k|
+		var voiceToMeasures = { |events, bb, k, pmeter|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
 			// pair @slur^start/end/endstart^ into slur markers. one open slur at a time (no nesting);
 			// endstart closes the open slur and opens a new one at the same note. m/ts = 1-based measure
@@ -199,15 +219,15 @@ PanolaMEI {
 						if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
 					while { remaining > eps } {
 						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-						var lastFrag = crosses.not, pieces = decompose.(take), subpos = pos;
+						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos;
 						pieces.do({ |pc, c|
 							var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
 							if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
 								tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
 							};
 							measures[measures.size-1] = measures[measures.size-1].add(
-								( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0], rest: ev[\rest], beatPos: subpos ));
-							subpos = subpos + durToBeats.(pc[0], pc[1]);
+								( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger, rest: ev[\rest], beatPos: subpos ));
+							subpos = subpos + pc[2];
 						});
 						pos = pos + take; remaining = remaining - take; firstFrag = false;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
@@ -315,12 +335,13 @@ PanolaMEI {
 		};
 
 		// ---- body ---------------------------------------------------------
-		var bb, perVoice, nm, mp, groupBeats, body = "";
+		var bb, perVoice, nm, mp, pmeter, groupBeats, body = "";
 		clefs = clefs ? voices.collect({ \treble });
 		bb = barBeats.(meter);
 		mp = meter.split($/);
 		groupBeats = ((mp[1].asInteger == 8) and: { (mp[0].asInteger % 3) == 0 }).if({ 1.5 }, { 1.0 });
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), bb, key) });
+		pmeter = PanolaMeter(mp[0].asInteger, mp[1].asInteger);
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), bb, key, pmeter) });
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
 		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(bb)) }; v });
 		nm.do({ |i|
