@@ -185,7 +185,26 @@ PanolaMEI {
 				}
 			}
 		};
-		var barBeats = { |m| var p = m.split($/); p[0].asInteger * (4.0 / p[1].asInteger) };
+		// parse a meter string into a self-contained descriptor. An additive numerator ("2+2+3/8") carries
+		// groups; a plain one ("7/8") has groups nil. Every meter-dependent step consumes THIS descriptor
+		// (passed as a parameter), so a future mid-piece meter change is a per-measure descriptor lookup,
+		// not a rewrite. count = the display numerator; num = its sum; bb = bar length in quarterLength;
+		// groupStarts = cumulative beat positions where each beam/metric group begins.
+		var parseMeter = { |m|
+			var parts = m.split($/), numStr = parts[0], den = parts[1].asInteger, unit = 4.0 / parts[1].asInteger;
+			var groups = (numStr.indexOf($+).notNil).if({ numStr.split($+).collect({ |g| g.asInteger }) }, { nil });
+			var num = groups.notNil.if({ groups.sum }, { numStr.asInteger });
+			var bb = num * unit, starts;
+			groups.notNil.if({
+				starts = [0.0];
+				groups.drop(-1).do({ |g| starts = starts.add(starts.last + (g * unit)) });
+			}, {
+				var gb = ((den == 8) and: { (num % 3) == 0 }).if({ 1.5 }, { 1.0 });
+				starts = (0..(((bb / gb).ceil.asInteger) - 1)).collect({ |kk| kk * gb });
+			});
+			( count: numStr, num: num, den: den, groups: groups, bb: bb, groupStarts: starts,
+				pmeter: PanolaMeter(num, den, groups) );
+		};
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k, pmeter|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
@@ -396,14 +415,16 @@ PanolaMEI {
 			recs;
 		};
 		// join a measure's records to MEI, wrapping runs of >=2 beamable notes (dur>=8, not rest)
-		// that share a beat-group in <beam> ... </beam>. groupBeats: 1 beat (simple) or 1.5 (compound /8).
-		var beamMeasure = { |records, groupBeats|
-			var result = "", i = 0;
+		// that share a beam group in <beam> ... </beam>. groupStarts: the cumulative beat positions
+		// where each metric/beam group begins (uniform for a plain meter, per-group for an additive one).
+		var beamMeasure = { |records, groupStarts|
+			var result = "", i = 0, eps = 1e-6,
+				groupOf = { |bp| (groupStarts.count({ |s| s <= (bp + eps) }) - 1) };
 			while { i < records.size } {
 				var rec = records[i], beamable = rec[\rest].not and: { rec[\md] >= 8 };
 				if (beamable) {
-					var grp = (rec[\beatPos] / groupBeats).floor, run = [rec], j = i + 1;
-					while { (j < records.size) and: { records[j][\rest].not and: { (records[j][\md] >= 8) and: { (records[j][\beatPos] / groupBeats).floor == grp } } } } {
+					var grp = groupOf.(rec[\beatPos]), run = [rec], j = i + 1;
+					while { (j < records.size) and: { records[j][\rest].not and: { (records[j][\md] >= 8) and: { groupOf.(records[j][\beatPos]) == grp } } } } {
 						run = run.add(records[j]); j = j + 1;
 					};
 					if (run.size >= 2) { result = result ++ "<beam>" ++ run.collect({ |r| r[\str] }).join ++ "</beam>" } { result = result ++ run[0][\str] };
@@ -506,18 +527,15 @@ PanolaMEI {
 		};
 
 		// ---- body ---------------------------------------------------------
-		var bb, perVoice, nm, mp, pmeter, groupBeats, body = "";
+		var perVoice, nm, m, body = "";
 		clefs = clefs ? voices.collect({ \treble });
-		bb = barBeats.(meter);
-		mp = meter.split($/);
-		groupBeats = ((mp[1].asInteger == 8) and: { (mp[0].asInteger % 3) == 0 }).if({ 1.5 }, { 1.0 });
-		pmeter = PanolaMeter(mp[0].asInteger, mp[1].asInteger);
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), bb, key, pmeter) });
+		m = parseMeter.(meter);
+		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), m[\bb], key, m[\pmeter]) });
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
-		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(bb)) }; v });
+		perVoice = perVoice.collect({ |v| while { v[\measures].size < nm } { v[\measures] = v[\measures].add(emptyRest.(m[\bb])) }; v });
 		nm.do({ |i|
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
-			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], groupBeats) ++ "</layer></staff>" });
+			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], m[\groupStarts]) ++ "</layer></staff>" });
 			perVoice.do({ |v, s|
 				v[\dynams].select({ |dm| dm[\measure] == (i+1) }).do({ |dm|
 					var tsv = dm[\tstamp], tss = (tsv.frac < 1e-6).if({ tsv.asInteger.asString }, { tsv.round(0.0001).asString });
@@ -535,7 +553,7 @@ PanolaMEI {
 			body = body ++ "</measure>";
 		});
 		^("<?xml version=\"1.0\" encoding=\"UTF-8\"?><mei xmlns=\"http://www.music-encoding.org/ns/mei\" meiversion=\"4.0.0\"><music><body><mdiv><score>"
-			++ "<scoreDef meter.count=\"" ++ mp[0] ++ "\" meter.unit=\"" ++ mp[1] ++ "\" key.sig=\"" ++ keyToSig.(key) ++ "\">"
+			++ "<scoreDef meter.count=\"" ++ m[\count] ++ "\" meter.unit=\"" ++ m[\den] ++ "\" key.sig=\"" ++ keyToSig.(key) ++ "\">"
 			++ staffGrp.(voices.size, clefs, braces) ++ "</scoreDef><section>" ++ body ++ "</section></score></mdiv></body></music></mei>");
 	}
 }
