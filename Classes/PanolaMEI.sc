@@ -178,6 +178,7 @@ PanolaMEI {
 		// returns per measure a list of records ( str: MEI, md: note-value, rest: bool, beatPos: beats-into-measure )
 		var voiceToMeasures = { |events, bb, k, pmeter|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
+			var units, ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
 			// pair @slur^start/end/endstart^ into slur markers. one open slur at a time (no nesting);
 			// endstart closes the open slur and opens a new one at the same note. m/ts = 1-based measure
 			// and beat of the marker note. warn + recover on any mismatch.
@@ -201,48 +202,108 @@ PanolaMEI {
 				}
 				{ true } { if (slurVal != "") { ("PanolaMEI: unknown slur value '" ++ slurVal ++ "'").warn } };
 			};
-			groupEvents.(events).do({ |unit|
-				if (unit[\kind] == \tuplet) {
-					// tuplet groups are atomic: never decomposed or split-and-tied across a barline
-					var tbeats = unit[\beats];
-						// give each tuplet member its real sub-tuplet beat offset, so dynamics/slur endpoints
-						// land on the right note (a slur inside one tuplet must not collapse to a point)
-						unit[\members].inject(0.0, { |macc, mev|
-							var mts = pos + macc + 1;
-							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: mts, mark: mev[\dynMark] )) };
-							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, mts) };
-							macc + mev[\beats];
+			units = groupEvents.(events);
+			while { ui < units.size } {
+				var unit = units[ui], consumedDonor = false, completed = false;
+				// music21-style completion: an incomplete *m/d run spells its remainder as tuplet member(s)
+				// that join the bracket — tied from the next note/rest, or filled with rests at a bar-end.
+				if ((unit[\kind] == \tuplet) and: { unit[\complete].not }) {
+					var container = containers.detect({ |cc| cc >= (unit[\beats] - eps) }),
+						remainder = container.notNil.if({ container - unit[\beats] }, { 0.0 }),
+						donor = ((ui + 1) < units.size).if({ units[ui + 1] }, { nil }),
+						inBar = container.notNil and: { (pos + container) <= (bb + eps) },
+						canDonor = inBar and: { donor.notNil } and: { donor[\kind] == \normal }
+							and: { (donor[\ev][\beats] + eps) >= remainder },
+						canRest = inBar and: { canDonor.not };
+					if (canDonor or: { canRest }) {
+						var frecs = [], compSp = PanolaDurationSpeller.spell(PanolaRational.fromFloat(remainder)),
+							dev = canDonor.if({ donor[\ev] }, { nil }),
+							compRest = canDonor.if({ dev[\rest] }, { true }),
+							hasRemainder = canDonor.if({ (dev[\beats] - remainder) > eps }, { false }),
+							restEv = ( rest: true ), sub = pos;
+						// (i) the unit's original members, at their written values, as tuplet-ratio records
+						unit[\members].do({ |mev|
+							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: mev[\dynMark] )) };
+							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, sub + 1) };
+							frecs = frecs.add(( str: meiElement.(mev, mev[\meidur], mev[\dots], nil, k),
+								md: mev[\meidur].asInteger, rest: mev[\rest], beatPos: sub,
+								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
+							sub = sub + mev[\beats];
 						});
-					if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
-						("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
-					};
-					measures[measures.size-1] = measures[measures.size-1].add(
-						( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
-					pos = pos + tbeats;
-					if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
-				} {
-					var ev = unit[\ev];
-					var remaining = ev[\beats], firstFrag = true;
-						if (ev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: ev[\dynMark] )) };
-						if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
-					while { remaining > eps } {
-						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos, frecs = [];
-						pieces.do({ |pc, c|
-							var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) }, tie = nil;
-							if (ev[\rest].not and: { (isFirst and: { isLast }).not }) {
-								tie = isFirst.if({"i"},{ isLast.if({"t"},{"m"}) });
-							};
-							frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger,
-								rest: ev[\rest], beatPos: subpos, tup: pc[3] ));
-							subpos = subpos + pc[2];
+						// (ii) the completing member(s) from the leading remainder: donor's pitch (a note ties out,
+						// its remainder is re-emitted tied), a donor rest ties nothing, or plain rests at a bar-end.
+						compSp[\components].do({ |x, ci|
+							var hasPrev = (ci > 0),
+								hasNext = (ci < (compSp[\components].size - 1)) or: { hasRemainder },
+								ctie = compRest.if({ nil }, {
+									(hasPrev and: { hasNext }).if({ "m" },
+										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) }) }),
+								compEv = compRest.if({ restEv }, { dev });
+							frecs = frecs.add(( str: meiElement.(compEv, x[\meidur], x[\dots], ctie, k),
+								md: x[\meidur].asInteger, rest: compRest, beatPos: sub,
+								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
+							sub = sub + x[\ql].asFloat;
 						});
 						wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r) });
-						pos = pos + take; remaining = remaining - take; firstFrag = false;
+						pos = pos + container;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
+						if (canDonor) {
+							if (hasRemainder) {
+								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not) );
+							} { consumedDonor = true };
+						};
+						completed = true;
+					} {
+						("PanolaMEI: incomplete tuplet (" ++ unit[\members].size ++ " notes, ratio " ++ unit[\num] ++ ":" ++ unit[\numbase] ++ ") — emitting a partial bracket").warn;
 					};
 				};
-			});
+				if (completed.not) {
+					if (unit[\kind] == \tuplet) {
+						// tuplet groups are atomic: never decomposed or split-and-tied across a barline
+						var tbeats = unit[\beats];
+							// give each tuplet member its real sub-tuplet beat offset, so dynamics/slur endpoints
+							// land on the right note (a slur inside one tuplet must not collapse to a point)
+							unit[\members].inject(0.0, { |macc, mev|
+								var mts = pos + macc + 1;
+								if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: mts, mark: mev[\dynMark] )) };
+								if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, mts) };
+								macc + mev[\beats];
+							});
+						if ((tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps }) {
+							("PanolaMEI: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (split tuplets unsupported)").warn;
+						};
+						measures[measures.size-1] = measures[measures.size-1].add(
+							( str: tupletMEI.(unit, k), md: 0, rest: false, beatPos: pos, tuplet: true ));
+						pos = pos + tbeats;
+						if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
+					} {
+						var ev = unit[\ev];
+						var remaining = ev[\beats], firstFrag = true;
+							if (ev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: ev[\dynMark] )) };
+							if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
+						while { remaining > eps } {
+							var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
+							var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos, frecs = [];
+							pieces.do({ |pc, c|
+								var isFirst = firstFrag and: { c == 0 }, isLast = lastFrag and: { c == (pieces.size - 1) },
+									hasPrev = (ev[\tieIn] == true) or: { isFirst.not }, hasNext = isLast.not, tie = nil;
+								if (ev[\rest].not) {
+									tie = (hasPrev and: { hasNext }).if({ "m" },
+										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) });
+								};
+								frecs = frecs.add(( str: meiElement.(ev, pc[0], pc[1], tie, k), md: pc[0].asInteger,
+									rest: ev[\rest], beatPos: subpos, tup: pc[3] ));
+								subpos = subpos + pc[2];
+							});
+							wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r) });
+							pos = pos + take; remaining = remaining - take; firstFrag = false;
+							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						};
+					};
+				};
+				ui = consumedDonor.if({ ui + 2 }, { ui + 1 });
+			};
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
 			if (openSlur.notNil) { "PanolaMEI: unclosed slur at the end of a voice; dropped".warn };
 			( measures: measures, dynams: dynams, slurs: slurs );
@@ -329,7 +390,6 @@ PanolaMEI {
 						members = members.add(events[i]); acc = acc + events[i][\beats]; i = i + 1;
 						if (containers.any({ |c| (acc - c).abs < eps })) { closed = true };
 					};
-					if (closed.not) { ("PanolaMEI: incomplete tuplet (" ++ members.size ++ " notes, ratio " ++ d ++ ":" ++ m ++ ") — emitting a partial bracket").warn };
 					units = units.add(( kind: \tuplet, num: d, numbase: m, members: members, beats: acc, complete: closed ));
 				};
 			};
