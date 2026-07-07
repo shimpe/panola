@@ -15,9 +15,9 @@ duration decomposition. A complete explicit teletype::*m/d:: tuplet is emitted a
 strong::incomplete:: teletype::*m/d:: tuplet is now strong::completed:: the way music21 does — by splitting
 the following note or rest into the teletype::<tuplet>:: bracket: the completing member(s) are spelled at
 the tuplet ratio with link::Classes/PanolaDurationSpeller::, a following note ties out (its remainder is
-re-emitted tied) and a following rest or a bar-end silence contributes a tuplet rest. A too-short note
-follower (one that could not fill the remainder) or a tuplet that would cross a barline is still left as a
-warned partial bracket. Eighths-and-shorter
+re-emitted tied) and a following rest is split so its leading part becomes a tuplet rest. music21 never
+fabricates a rest, so a strong::trailing:: incomplete tuplet (nothing follows), a too-short follower, or a
+tuplet that would cross a barline is left as a warned partial bracket. Eighths-and-shorter
 are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, and per-note
 teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
@@ -34,7 +34,7 @@ PanolaMEI {
 
 	/*
 	[classmethod.scoreAsMEI]
-	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest or bar-end contributing a tuplet rest; a too-short note follower or a barline-crossing tuplet stays a warned partial bracket), per-note dynamics/articulation, and slurs."
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows), a too-short follower, or a barline-crossing tuplet stays a warned partial bracket), per-note dynamics/articulation, and slurs."
 	[classmethod.scoreAsMEI.args]
 	voices = "an Array of Panola instances (one per staff, top to bottom)"
 	meter = "time signature as a String, e.g. \"4/4\""
