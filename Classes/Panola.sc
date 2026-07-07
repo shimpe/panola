@@ -1052,12 +1052,11 @@ Panola {
 
 	/*
 	[classmethod.scoreAsMEI]
-	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first)."
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first). Delegates to link::Classes/PanolaMEI#*scoreAsMEI::."
 	[classmethod.scoreAsMEI.args]
 	voices = "array of Panola instances"
-	meter = "time signature string, e.g. \"4/4\""
-	key = "key symbol"
-	clefs = "array of clef symbols, one per staff (defaults to all treble)"
+	changes = "an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure, each field carried forward; the teletype::measure: 1:: entry sets the initial meter and key (nil defaults to teletype::4/4:: / \\Cmajor). A mid-piece meter/key change emits a mid-section teletype::<scoreDef>::. See link::Classes/PanolaMEI#*scoreAsMEI:: for additive meters and inline teletype::@clef::."
+	clefs = "array of clef symbols, one per staff giving the initial clef (defaults to all treble)"
 	braces = "array of [firstStaff, lastStaff] 1-based ranges to join with a brace"
 	[classmethod.scoreAsMEI.returns]
 	what = "an MEI document (a String)"

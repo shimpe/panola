@@ -49,19 +49,16 @@ Please see the example code at the bottom for more advanced usage.
 CLASSMETHODS::
 
 METHOD:: scoreAsMEI
-render several Panola voices as one multi-staff MEI score (one voice per staff, top first).
+render several Panola voices as one multi-staff MEI score (one voice per staff, top first). Delegates to link::Classes/PanolaMEI#*scoreAsMEI::.
 
 ARGUMENT:: voices
 array of Panola instances
 
-ARGUMENT:: meter
-time signature string, e.g. "4/4"
-
-ARGUMENT:: key
-key symbol
+ARGUMENT:: changes
+an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure, each field carried forward; the teletype::measure: 1:: entry sets the initial meter and key (nil defaults to teletype::4/4:: / \Cmajor). A mid-piece meter/key change emits a mid-section teletype::<scoreDef>::. See link::Classes/PanolaMEI#*scoreAsMEI:: for additive meters and inline teletype::@clef::.
 
 ARGUMENT:: clefs
-array of clef symbols, one per staff (defaults to all treble)
+array of clef symbols, one per staff giving the initial clef (defaults to all treble)
 
 ARGUMENT:: braces
 array of [firstStaff, lastStaff] 1-based ranges to join with a brace

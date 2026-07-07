@@ -5,8 +5,8 @@ summary = "render Panola voice(s) to an MEI music-notation document"
 categories = "Notation, Utils"
 related = "Classes/Panola, Classes/MSScore, Classes/PanolaMeterSplitter, Classes/PanolaMeter"
 description = '''
-Pure transform from Panola voice(s) + score preferences (time signature, key, clef per staff, brace
-grouping) to an MEI document (a String), usable by any MEI renderer (Verovio, ...). Panola itself has
+Pure transform from Panola voice(s) + score preferences (a strong::changes:: list of meter/key settings,
+clef per staff, brace grouping) to an MEI document (a String), usable by any MEI renderer (Verovio, ...). Panola itself has
 no notion of barlines / key / clef, so those are supplied here; durations are split meter-aware at the
 metrical boundaries of a link::Classes/PanolaMeter:: via link::Classes/PanolaMeterSplitter:: (a note breaks
 at any interior boundary stronger than the one it starts on, so a note crossing a barline or a strong
@@ -29,10 +29,19 @@ are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, an
 teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
 
+strong::Mid-piece meter / key changes:: are driven by the teletype::changes:: argument: an Array of Events
+teletype::( measure:, meter:, key: ):: applied at the strong::start:: of their (1-based) measure, each
+field carrying forward to later measures; the teletype::measure: 1:: entry sets the initial meter and key
+(defaulting to teletype::4/4:: and teletype::Cmajor:: when absent). A mid-piece meter or key change emits a
+mid-teletype::<section>:: teletype::<scoreDef>::, and a meter change varies the bar length from that
+measure on. A per-note strong::inline clef:: property teletype::@clef^bass^:: (also teletype::@clef^treble^::,
+teletype::@clef^alto^::, teletype::@clef^tenor^::) switches that staff's clef at that note, mid-measure
+allowed; the initial clef per staff stays the teletype::clefs:: argument.
+
 Typical use:
 code::
 PanolaMEI.scoreAsMEI([Panola("c5_4 e g a"), Panola("c3_2 g2")],
-    meter: "4/4", key: \Cmajor, clefs: [\treble, \bass], braces: [[1,2]]);
+    changes: [( measure: 1, meter: "4/4", key: \Cmajor )], clefs: [\treble, \bass], braces: [[1,2]]);
 ::
 Also reachable as teletype::aPanola.asMEI(meter, key, clef):: (see link::Classes/Panola::).
 '''
@@ -41,12 +50,11 @@ PanolaMEI {
 
 	/*
 	[classmethod.scoreAsMEI]
-	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows) or a too-short follower stays a warned partial bracket; a complete tuplet crossing a barline is split into tied per-measure teletype::<tuplet>:: brackets, a straddling member cut at the barline into tied sub-tuplet notes, falling back to the whole bracket plus a warning when a fragment is not expressible at the tuplet ratio), per-note dynamics/articulation, and slurs. An strong::additive meter:: numerator (teletype::\"2+2+3/8\"::) groups the bar so the splitting, per-group beaming, and the meter signature all follow the grouping, while a plain teletype::\"7/8\":: stays ungrouped."
+	description = "render several Panola voices as one multi-staff MEI score (one voice per staff, top first), including meter-aware splitting-and-tying at metrical boundaries, per-beat beaming, tuplets (an incomplete teletype::*m/d:: run is completed music21-style — the following note or rest is split into the teletype::<tuplet>:: bracket with link::Classes/PanolaDurationSpeller::, a note tied out and a rest split into a tuplet rest; a trailing incomplete tuplet (nothing follows) or a too-short follower stays a warned partial bracket; a complete tuplet crossing a barline is split into tied per-measure teletype::<tuplet>:: brackets, a straddling member cut at the barline into tied sub-tuplet notes, falling back to the whole bracket plus a warning when a fragment is not expressible at the tuplet ratio), per-note dynamics/articulation, and slurs. An strong::additive meter:: numerator (teletype::\"2+2+3/8\"::) groups the bar so the splitting, per-group beaming, and the meter signature all follow the grouping, while a plain teletype::\"7/8\":: stays ungrouped. Score-level strong::meter/key changes:: come from the teletype::changes:: list (Events teletype::( measure:, meter:, key: ):: applied at a measure start, each field carried forward), emitting a mid-teletype::<section>:: teletype::<scoreDef>:: where meter or key changes; a per-note teletype::@clef^bass^:: switches that staff's clef inline (mid-measure allowed)."
 	[classmethod.scoreAsMEI.args]
 	voices = "an Array of Panola instances (one per staff, top to bottom)"
-	meter = "time signature as a String, e.g. \"4/4\". An strong::additive numerator:: (teletype::\"2+2+3/8\"::) groups the bar: the durations split at the group boundaries, beam per group, and print as an strong::additive meter signature::. A plain numerator (teletype::\"7/8\"::) stays ungrouped — a plain signature with the default beaming."
-	key = "key Symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
-	clefs = "an Array of clef Symbols (\\treble \\bass \\alto \\tenor), one per staff (nil defaults to all \\treble)"
+	changes = "an Array of Events ( measure:, meter:, key: ) applied at the START of their 1-based measure, each field carrying forward to later measures. The teletype::measure: 1:: entry sets the strong::initial:: meter and key (nil defaults to a single teletype::4/4:: / \\Cmajor entry). A meter String may be strong::additive:: (teletype::\"2+2+3/8\"::) to group the bar — the durations split at the group boundaries, beam per group, and print an strong::additive meter signature:: — while a plain numerator (teletype::\"7/8\"::) stays ungrouped. A mid-piece meter or key change emits a mid-teletype::<section>:: teletype::<scoreDef>::; a meter change varies the bar length from that measure. Independently, a per-note teletype::@clef^bass^:: (also teletype::@clef^treble^::, teletype::@clef^alto^::, teletype::@clef^tenor^::) switches that staff's clef inline, mid-measure allowed."
+	clefs = "an Array of clef Symbols (\\treble \\bass \\alto \\tenor), one per staff giving the strong::initial:: clef (nil defaults to all \\treble); mid-piece clef changes use a per-note teletype::@clef::"
 	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
 	[classmethod.scoreAsMEI.returns]
 	what = "an MEI document (a String)"
