@@ -28,6 +28,7 @@ falls back to the whole bracket in one bar plus a warning. Eighths-and-shorter
 are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, and per-note
 teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
+A per-note teletype::@hairpin^cresc^:: (or teletype::dim::) ... teletype::@hairpin^end^:: span becomes a crescendo/decrescendo strong::hairpin::; teletype::@hairpin^endcresc^:: / teletype::@hairpin^enddim^:: close the open hairpin and open the opposite one at that note (messa di voce). One hairpin at a time, like slurs.
 
 A single teletype::@art:: may strong::combine several articulations:: with teletype::+::, e.g.
 teletype::@art^staccato+accent^::, rendering them together as one space-separated teletype::artic::
