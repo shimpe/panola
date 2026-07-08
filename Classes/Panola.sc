@@ -1062,8 +1062,8 @@ Panola {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, changes, clefs=nil, braces=nil |
-		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces);
+		| voices, changes, clefs=nil, braces=nil, pageBreaks=nil, systemBreaks=nil |
+		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces, pageBreaks, systemBreaks);
 	}
 }
 

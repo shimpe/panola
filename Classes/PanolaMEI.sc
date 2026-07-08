@@ -67,7 +67,7 @@ PanolaMEI {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, changes, clefs = nil, braces = nil |
+		| voices, changes, clefs = nil, braces = nil, pageBreaks = nil, systemBreaks = nil |
 
 		// ---- pure helpers -------------------------------------------------
 		var parseOne = { |s|
@@ -669,6 +669,10 @@ PanolaMEI {
 					if (keyChanged) { attrs = attrs ++ " key.sig=\"" ++ keyToSig.(kCur) ++ "\"" };
 					body = body ++ "<scoreDef" ++ attrs ++ "/>";
 				};
+			};
+			if (i > 0) {
+				if ((pageBreaks ? []).includes(i + 1)) { body = body ++ "<pb/>" }
+				{ if ((systemBreaks ? []).includes(i + 1)) { body = body ++ "<sb/>" } };
 			};
 			body = body ++ "<measure n=\"" ++ (i+1) ++ "\">";
 			perVoice.do({ |v, s| body = body ++ "<staff n=\"" ++ (s+1) ++ "\"><layer n=\"1\">" ++ beamMeasure.(v[\measures][i], meterFor.(i + 1)[\groupStarts]) ++ "</layer></staff>" });
