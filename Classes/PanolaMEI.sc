@@ -30,6 +30,8 @@ teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation,
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
 A per-note teletype::@hairpin^cresc^:: (or teletype::dim::) ... teletype::@hairpin^end^:: span becomes a crescendo/decrescendo strong::hairpin::; teletype::@hairpin^endcresc^:: / teletype::@hairpin^enddim^:: close the open hairpin and open the opposite one at that note (messa di voce). One hairpin at a time, like slurs.
 
+Forced breaks: pass teletype::pageBreaks:: / teletype::systemBreaks:: (Arrays of 1-based measure numbers) to start a new strong::page:: (teletype::<pb/>::) or strong::system:: (teletype::<sb/>::) at those measures. Page breaks switch to manual pagination (auto page-fill off); system breaks keep auto pagination. The renderer selects the mode from the encoded breaks.
+
 A single teletype::@art:: may strong::combine several articulations:: with teletype::+::, e.g.
 teletype::@art^staccato+accent^::, rendering them together as one space-separated teletype::artic::
 list (teletype::artic="acc stacc"::). Each teletype::+:: part may itself be a strong::sticky::
@@ -63,6 +65,8 @@ PanolaMEI {
 	changes = "an Array of Events ( measure:, meter:, key: ) applied at the START of their 1-based measure, each field carrying forward to later measures. The teletype::measure: 1:: entry sets the strong::initial:: meter and key (nil defaults to a single teletype::4/4:: / \\Cmajor entry). A meter String may be strong::additive:: (teletype::\"2+2+3/8\"::) to group the bar — the durations split at the group boundaries, beam per group, and print an strong::additive meter signature:: — while a plain numerator (teletype::\"7/8\"::) stays ungrouped. A mid-piece meter or key change emits a mid-teletype::<section>:: teletype::<scoreDef>::; a meter change varies the bar length from that measure. Independently, a per-note teletype::@clef^bass^:: (also teletype::@clef^treble^::, teletype::@clef^alto^::, teletype::@clef^tenor^::) switches that staff's clef inline, mid-measure allowed."
 	clefs = "an Array of clef Symbols (\\treble \\bass \\alto \\tenor), one per staff giving the strong::initial:: clef (nil defaults to all \\treble); mid-piece clef changes use a per-note teletype::@clef::"
 	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
+	pageBreaks = "an Array of 1-based measure numbers where a new PAGE starts (nil for none), emitting a mid-section teletype::<pb/>::. Verovio then paginates strong::only:: at these marks (manual pagination — auto page-fill is off)."
+	systemBreaks = "an Array of 1-based measure numbers where a new SYSTEM (line) starts (nil for none), emitting teletype::<sb/>::. Unlike pageBreaks, automatic pagination is kept."
 	[classmethod.scoreAsMEI.returns]
 	what = "an MEI document (a String)"
 	*/
