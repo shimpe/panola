@@ -29,6 +29,12 @@ are auto-beamed per beat, same-ratio runs become teletype::<tuplet>:: groups, an
 teletype::@dyn:: / teletype::@art:: properties become dynamics and articulation, while
 teletype::@slur^start^:: ... teletype::@slur^end^:: spans become slurs.
 
+A single teletype::@art:: may strong::combine several articulations:: with teletype::+::, e.g.
+teletype::@art^staccato+accent^::, rendering them together as one space-separated teletype::artic::
+list (teletype::artic="acc stacc"::). Each teletype::+:: part may itself be a strong::sticky::
+toggle: teletype::@art^staccato:on+accent^:: begins a staccato passage strong::and:: accents just
+that note. The list is order-independent and de-duplicated.
+
 strong::Mid-piece meter / key changes:: are driven by the teletype::changes:: argument: an Array of Events
 teletype::( measure:, meter:, key: ):: applied at the strong::start:: of their (1-based) measure, each
 field carrying forward to later measures; the teletype::measure: 1:: entry sets the initial meter and key
