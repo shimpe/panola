@@ -260,19 +260,19 @@ simple parser that recognizes panola properties. Properties consist of a name, a
 				ScpSequenceOf([
 					propertynameParser,
 					ScpStrParser("{"),
-					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:]*")]),
+					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:+]*")]),
 					ScpStrParser("}")
 				]).map({|result| (\propertyname: result[0][\value], \type: \animatedproperty, \value: result[2])}),
 				ScpSequenceOf([
 					propertynameParser,
 					ScpStrParser("["),
-					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:]*")]),
+					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:+]*")]),
 					ScpStrParser("]")
 				]).map({|result| (\propertyname: result[0][\value], \type: \staticproperty, \value: result[2])}),
 				ScpSequenceOf([
 					propertynameParser,
 					ScpStrParser("^"),
-					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:]*")]),
+					ScpChoice([ScpParserFactory.makeFloatParser, ScpRegexParser("[a-zA-Z][a-zA-Z0-9:+]*")]),
 					ScpStrParser("^")
 				]).map({|result| (\propertyname: result[0][\value], \type: \oneshotproperty, \value: result[2])}),
 		])).errorMapState(makeErr.("property list"));
