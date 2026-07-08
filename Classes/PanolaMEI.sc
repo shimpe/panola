@@ -141,19 +141,32 @@ PanolaMEI {
 		var annotateExpression = { |events|
 			var artSet = Set[], prevArt = "", prevDyn = "";
 			events.do({ |ev|
-				var art = ev[\art] ? "", dyn = ev[\dyn] ? "", noteSet;
-				if ((art != prevArt) and: { art.includes($:) }) {
-					var parts = art.split($:), code = artCode.(parts[0]);
-					if (code.notNil) {
-						(parts[1] == "on").if({ artSet = artSet.add(code) }, { artSet.remove(code) });
-					} { ("PanolaMEI: unknown articulation '" ++ parts[0] ++ "'").warn };
+				var art = ev[\art] ? "", dyn = ev[\dyn] ? "", noteSet, parts;
+				// one @art value may combine several articulations with '+' (e.g. "staccato+accent");
+				// each part is either a sticky "name:on"/"name:off" toggle or a bare per-note name.
+				parts = (art == "").if({ [] }, { art.split($+) });
+				// sticky toggles change the carried-forward set; apply only when the whole art value
+				// CHANGES (a static [] value carries forward, so re-applying every note would be
+				// redundant, and re-applying ":off" would be wrong).
+				if (art != prevArt) {
+					parts.do({ |p|
+						if (p.includes($:)) {
+							var seg = p.split($:), code = artCode.(seg[0]);
+							if (code.notNil) {
+								(seg[1] == "on").if({ artSet = artSet.add(code) }, { artSet.remove(code) });
+							} { ("PanolaMEI: unknown articulation '" ++ seg[0] ++ "'").warn };
+						};
+					});
 				};
 				prevArt = art;
 				noteSet = artSet.copy;
-				if ((art != "") and: { art.includes($:).not }) {
-					var code = artCode.(art);
-					if (code.notNil) { noteSet = noteSet.add(code) } { ("PanolaMEI: unknown articulation '" ++ art ++ "'").warn };
-				};
+				// bare names (no :on/:off) add to THIS note only
+				parts.do({ |p|
+					if ((p != "") and: { p.includes($:).not }) {
+						var code = artCode.(p);
+						if (code.notNil) { noteSet = noteSet.add(code) } { ("PanolaMEI: unknown articulation '" ++ p ++ "'").warn };
+					};
+				});
 				ev[\articStr] = noteSet.asArray.sort.join(" ");
 				ev[\dynMark] = ((dyn != prevDyn) and: { dyn != "" }).if({ dyn }, { nil });
 				prevDyn = dyn;
