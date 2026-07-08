@@ -1291,5 +1291,68 @@ pat[\score_withpedalhandling] = Pbindf(
 
 pat[\score_withpedalhandling].play(TempoClock(120/60));
 )
+
+// =====================================================================================
+// From patterns to NOTATION. Everything above turns a Panola string into SuperCollider
+// patterns. Panola can ALSO engrave the same strings as sheet music: Panola.scoreAsMEI
+// returns an MEI document (a String) that any MEI renderer (Verovio, ...) can display.
+// To SHOW and PLAY a score inside a scene (with a follow cursor), install the MSScore
+// quark (https://github.com/shimpe/msscore), which builds this MEI for you.
+// =====================================================================================
+
+// The simplest engraving: one voice -> MEI. The 2nd arg is `changes` (meter+key applied
+// at measure starts); the 3rd is the clef per staff.
+(
+~mei = Panola.scoreAsMEI([Panola("c5_4 e5 g5 c6")], [ ( measure: 1, meter: "4/4", key: \Cmajor ) ], [\treble]);
+~mei.postln;   // an MEI string; write it to a .mei file to open in any MEI viewer
+)
+
+// Several voices, one staff each, braced into a grand staff (the 4th arg braces staves 1-2).
+// Chords use <angle brackets>.
+(
+~mei = Panola.scoreAsMEI(
+    [ Panola("c5_4 e5 g5 c6"), Panola("<c4_2 e4 g4> <b3_2 d4 g4>"), Panola("c3_1") ],
+    [ ( measure: 1, meter: "4/4", key: \Cmajor ) ],
+    [\treble, \treble, \bass],   // clefs, one per staff
+    [[1, 2]]);                   // braces: join staves 1 and 2
+)
+
+// Per-note expression is written as Panola properties and engraved into the score:
+//   @dyn^mf^                            a dynamic mark
+//   @art^staccato^                      an articulation on one note
+//   @art[name:on] .. @art[name:off]     an articulation over a passage
+//   @art^staccato+accent^               COMBINE several articulations on one note with '+'
+//   @slur^start^ .. @slur^end^          a slur (@slur^endstart^ chains phrases)
+//   @hairpin^cresc^ .. @hairpin^end^    a crescendo (or ^dim^); @hairpin^endcresc^/^enddim^
+//                                       chain a messa di voce (< >)
+//   @clef^bass^                         switch this staff's clef inline (also ^treble^/^alto^/^tenor^)
+(
+~mei = Panola.scoreAsMEI([Panola(
+    "c5_4@dyn^mf^@slur^start^@hairpin^cresc^ e5 g5@art^staccato+accent^ c6@slur^end^@hairpin^enddim^ g5 e5 c5@hairpin^end^"
+    )], [ ( measure: 1, meter: "4/4", key: \Cmajor ) ], [\treble]);
+)
+
+// Mid-piece meter / key changes: each `changes` Event applies at the start of its (1-based)
+// measure, and each omitted field carries forward. A key change never transposes - pitches
+// stay as authored, accidentals are only respelled for the new key.
+(
+~mei = Panola.scoreAsMEI([Panola("c5_4 e5 g5 e5 d5_4 f#5 a5 f#5 g5_4 b5 d6 b5 c6_2 g5")],
+    [ ( measure: 1, meter: "4/4", key: \Cmajor ),
+      ( measure: 2, key: \Gmajor ),      // key change; meter carries over
+      ( measure: 4, meter: "3/4" ) ],    // meter change; key carries over
+    [\treble]);
+)
+
+// Forced page & system breaks (manual layout). The 5th/6th args are pageBreaks / systemBreaks:
+// lists of 1-based measure numbers. A page break starts a new PAGE at that bar (manual
+// pagination - you control every page boundary); a system break starts a new LINE.
+(
+~mei = Panola.scoreAsMEI([Panola("c5_4 e5 g5 e5 d5_4 f5 a5 f5 e5_4 g5 b5 g5 f5_4 a5 c6 a5 g5_1")],
+    [ ( measure: 1, meter: "4/4", key: \Cmajor ) ],
+    [\treble], nil,
+    [5],      // pageBreaks: new page at bar 5
+    [3]);     // systemBreaks: new line at bar 3
+)
+
 '''
 */
