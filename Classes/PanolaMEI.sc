@@ -247,6 +247,7 @@ PanolaMEI {
 		// measure's key (keyFor.(measures.size)), so a mid-piece key change re-spells accidentals per bar.
 		var voiceToMeasures = { |events, meterFor, keyFor|
 			var measures = [[]], pos = 0.0, eps = 1e-6, dynams = [], openSlur = nil, slurs = [], applySlur;
+			var openHairpin = nil, hairpins = [], applyHairpin;
 			var units, ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
 			// variable bar lengths: bb (bar length in QL) and pmeter (the PanolaMeter for the splitter)
 			// belong to the CURRENT measure. They start at measure 1 and are re-read from
@@ -278,6 +279,39 @@ PanolaMEI {
 				}
 				{ true } { if (slurVal != "") { ("PanolaMEI: unknown slur value '" ++ slurVal ++ "'").warn } };
 			};
+			// pair @hairpin^cresc/dim/end/endcresc/enddim^ into hairpin markers (form cres|dim). one open
+			// hairpin at a time (like slurs); endcresc/enddim close the open one and open a new one of that
+			// form at the SAME note (messa di voce). m/ts = 1-based measure and beat. warn + recover.
+			applyHairpin = { |hpVal, m, ts|
+				var formOf = { |v|
+					case
+					{ (v == "cresc") or: { v == "crescendo" } } { "cres" }
+					{ (v == "dim") or: { v == "decresc" } or: { v == "decrescendo" } or: { v == "diminuendo" } } { "dim" }
+					{ true } { nil };
+				};
+				var closeOpen = {
+					if (openHairpin.notNil) {
+						hairpins = hairpins.add(( startMeasure: openHairpin[\measure], startTstamp: openHairpin[\tstamp],
+							endMeasure: m, endTstamp: ts, form: openHairpin[\form] ));
+						openHairpin = nil;
+					};
+				};
+				case
+				{ hpVal == "end" } {
+					if (openHairpin.isNil) { "PanolaMEI: hairpin end with no open hairpin; ignored".warn };
+					closeOpen.value;
+				}
+				{ (hpVal == "endcresc") or: { hpVal == "enddim" } } {
+					if (openHairpin.isNil) { "PanolaMEI: hairpin endcresc/enddim with no open hairpin; only opening a new one".warn };
+					closeOpen.value;
+					openHairpin = ( measure: m, tstamp: ts, form: (hpVal == "endcresc").if({ "cres" }, { "dim" }) );
+				}
+				{ formOf.(hpVal).notNil } {
+					if (openHairpin.notNil) { "PanolaMEI: hairpin start while a hairpin is open; the previous one is dropped".warn };
+					openHairpin = ( measure: m, tstamp: ts, form: formOf.(hpVal) );
+				}
+				{ true } { if (hpVal != "") { ("PanolaMEI: unknown hairpin value '" ++ hpVal ++ "'").warn } };
+			};
 			units = groupEvents.(events);
 			while { ui < units.size } {
 				var unit = units[ui], consumedDonor = false, completed = false;
@@ -301,6 +335,7 @@ PanolaMEI {
 						unit[\members].do({ |mev|
 							if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: mev[\dynMark] )) };
 							if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, sub + 1) };
+							if ((mev[\hairpin] ? "") != "") { applyHairpin.(mev[\hairpin], measures.size, sub + 1) };
 							frecs = frecs.add(( str: clefEl.(mev[\clef]) ++ meiElement.(mev, mev[\meidur], mev[\dots], nil, keyFor.(measures.size)),
 								md: mev[\meidur].asInteger, rest: mev[\rest], beatPos: sub,
 								tup: ( num: unit[\num], numbase: unit[\numbase] ) ));
@@ -313,6 +348,7 @@ PanolaMEI {
 						if (compRest.not) {
 							if (dev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: sub + 1, mark: dev[\dynMark] )) };
 							if ((dev[\slur] ? "") != "") { applySlur.(dev[\slur], measures.size, sub + 1) };
+							if ((dev[\hairpin] ? "") != "") { applyHairpin.(dev[\hairpin], measures.size, sub + 1) };
 						};
 						compSp[\components].do({ |x, ci|
 							var hasPrev = (ci > 0),
@@ -332,7 +368,7 @@ PanolaMEI {
 						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
 						if (canDonor) {
 							if (hasRemainder) {
-								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "").put(\clef, "") );
+								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "").put(\hairpin, "").put(\clef, "") );
 							} { consumedDonor = true };
 						};
 						completed = true;
@@ -350,7 +386,7 @@ PanolaMEI {
 							ratio = ( num: unit[\num], numbase: unit[\numbase] ),
 							// dyn/slur are collected here during the walk and only committed if the split
 							// succeeds, so a fallback (which re-adds them atomically) never double-adds.
-							pendDyn = [], pendSlur = [],
+							pendDyn = [], pendSlur = [], pendHairpin = [],
 							// build per-measure record buckets by walking members, splitting a straddling
 							// member at the barline. Returns nil if any straddling fragment is inexpressible
 							// or not a single component at the unit's ratio -> caller falls back.
@@ -370,6 +406,7 @@ PanolaMEI {
 									// dyn/slur at the member onset (measure = base + current bucket index)
 									if (mev[\dynMark].notNil) { pendDyn = pendDyn.add(( measure: measures.size + (buckets.size - 1), tstamp: sub + 1, mark: mev[\dynMark] )) };
 									if ((mev[\slur] ? "") != "") { pendSlur = pendSlur.add([ mev[\slur], measures.size + (buckets.size - 1), sub + 1 ]) };
+									if ((mev[\hairpin] ? "") != "") { pendHairpin = pendHairpin.add([ mev[\hairpin], measures.size + (buckets.size - 1), sub + 1 ]) };
 									while { (mb > eps) and: { ok } } {
 										var room = bb - sub;
 										(mb <= (room + eps)).if({
@@ -403,6 +440,7 @@ PanolaMEI {
 							// bucket through wrapTuplets, advancing pos across the barlines it crossed
 							pendDyn.do({ |dd| dynams = dynams.add(dd) });
 							pendSlur.do({ |ss| applySlur.(ss[0], ss[1], ss[2]) });
+							pendHairpin.do({ |ss| applyHairpin.(ss[0], ss[1], ss[2]) });
 							split.do({ |bucket, bi|
 								wrapTuplets.(bucket).do({ |r| measures[measures.size - 1] = measures[measures.size - 1].add(r) });
 								if (bi < (split.size - 1)) { measures = measures.add([]) };
@@ -419,6 +457,7 @@ PanolaMEI {
 								var mts = pos + macc + 1;
 								if (mev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: mts, mark: mev[\dynMark] )) };
 								if ((mev[\slur] ? "") != "") { applySlur.(mev[\slur], measures.size, mts) };
+								if ((mev[\hairpin] ? "") != "") { applyHairpin.(mev[\hairpin], measures.size, mts) };
 								macc + mev[\beats];
 							});
 							if (crosses) {
@@ -434,6 +473,7 @@ PanolaMEI {
 						var remaining = ev[\beats], firstFrag = true;
 							if (ev[\dynMark].notNil) { dynams = dynams.add(( measure: measures.size, tstamp: pos + 1, mark: ev[\dynMark] )) };
 							if ((ev[\slur] ? "") != "") { applySlur.(ev[\slur], measures.size, pos + 1) };
+							if ((ev[\hairpin] ? "") != "") { applyHairpin.(ev[\hairpin], measures.size, pos + 1) };
 						while { remaining > eps } {
 							var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
 							var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), subpos = pos, frecs = [];
@@ -461,7 +501,8 @@ PanolaMEI {
 			};
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
 			if (openSlur.notNil) { "PanolaMEI: unclosed slur at the end of a voice; dropped".warn };
-			( measures: measures, dynams: dynams, slurs: slurs );
+			if (openHairpin.notNil) { "PanolaMEI: unclosed hairpin at the end of a voice; dropped".warn };
+			( measures: measures, dynams: dynams, slurs: slurs, hairpins: hairpins );
 		};
 		var clefMap = IdentityDictionary[\treble->["G","2"], \bass->["F","4"], \alto->["C","3"], \tenor->["C","4"]];
 		// inline clef change: a note's non-empty @clef ("treble"/"bass"/"alto"/"tenor") yields a
@@ -585,12 +626,13 @@ PanolaMEI {
 			var dyns = panola.customPropertyPattern("dyn", "").asStream.all;
 			var arts = panola.customPropertyPattern("art", "").asStream.all;
 			var slurs = panola.customPropertyPattern("slur", "").asStream.all;
+			var hairpinsP = panola.customPropertyPattern("hairpin", "").asStream.all;
 			var clefsP = panola.customPropertyPattern("clef", "").asStream.all;
 			names.collect({ |nm, i|
 				var e = parseName.(nm), d = parseDur.(durs[i]);
 				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
 				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString; e[\slur] = slurs[i].asString;
-				e[\clef] = clefsP[i].asString;
+				e[\clef] = clefsP[i].asString; e[\hairpin] = hairpinsP[i].asString;
 				e;
 			});
 		};
@@ -641,6 +683,14 @@ PanolaMEI {
 					var t1s = (t1.frac < 1e-6).if({ t1.asInteger.asString }, { t1.round(0.0001).asString });
 					var t2s = (t2.frac < 1e-6).if({ t2.asInteger.asString }, { t2.round(0.0001).asString });
 					body = body ++ "<slur tstamp=\"" ++ t1s ++ "\" tstamp2=\"" ++ dm ++ "m+" ++ t2s ++ "\" staff=\"" ++ (s+1) ++ "\"/>";
+				});
+			});
+			perVoice.do({ |v, s|
+				(v[\hairpins] ? []).select({ |hp| hp[\startMeasure] == (i+1) }).do({ |hp|
+					var t1 = hp[\startTstamp], t2 = hp[\endTstamp], dm = hp[\endMeasure] - hp[\startMeasure];
+					var t1s = (t1.frac < 1e-6).if({ t1.asInteger.asString }, { t1.round(0.0001).asString });
+					var t2s = (t2.frac < 1e-6).if({ t2.asInteger.asString }, { t2.round(0.0001).asString });
+					body = body ++ "<hairpin form=\"" ++ hp[\form] ++ "\" tstamp=\"" ++ t1s ++ "\" tstamp2=\"" ++ dm ++ "m+" ++ t2s ++ "\" staff=\"" ++ (s+1) ++ "\"/>";
 				});
 			});
 			body = body ++ "</measure>";
