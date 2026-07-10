@@ -1046,8 +1046,9 @@ Panola {
 	what = "an MEI document (a String)"
 	*/
 	asMEI {
-		| meter="4/4", key=\Cmajor, clef=\treble |
-		^PanolaMEI.scoreAsMEI([this], [( measure: 1, meter: meter, key: key )], [clef], nil);
+		| meter="4/4", key=\Cmajor, clef=\treble, lyrics=nil |
+		^PanolaMEI.scoreAsMEI([this], [( measure: 1, meter: meter, key: key )], [clef], nil, nil, nil,
+			lyrics.notNil.if({ [lyrics] }, { nil }));
 	}
 
 	/*
@@ -1062,8 +1063,8 @@ Panola {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, changes, clefs=nil, braces=nil, pageBreaks=nil, systemBreaks=nil |
-		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces, pageBreaks, systemBreaks);
+		| voices, changes, clefs=nil, braces=nil, pageBreaks=nil, systemBreaks=nil, lyrics=nil |
+		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces, pageBreaks, systemBreaks, lyrics);
 	}
 }
 
