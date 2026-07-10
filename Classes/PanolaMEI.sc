@@ -71,7 +71,7 @@ PanolaMEI {
 	what = "an MEI document (a String)"
 	*/
 	*scoreAsMEI {
-		| voices, changes, clefs = nil, braces = nil, pageBreaks = nil, systemBreaks = nil |
+		| voices, changes, clefs = nil, braces = nil, pageBreaks = nil, systemBreaks = nil, lyrics = nil |
 
 		// ---- pure helpers -------------------------------------------------
 		var parseOne = { |s|
@@ -205,17 +205,36 @@ PanolaMEI {
 		};
 		var durAttrs = { |md, dt| " dur=\"" ++ md ++ "\"" ++ (dt > 0).if({ " dots=\"" ++ dt ++ "\"" }, {""}) };
 		var accidS = { |a| a.notNil.if({ " accid=\"" ++ a ++ "\"" }, {""}) };
+		// build the <verse>/<syl> children for an event from ev[\lyrics] (an Array over verses; each
+		// entry a slot Event or nil). Empty String when the event has no syllable, so the note stays
+		// self-closing (byte-identical). Syllable text is XML-escaped.
+		var verseXml = { |ev|
+			var out = "";
+			(ev[\lyrics] ? []).do({ |slot, vi|
+				if (slot.notNil) {
+					var attrs = "";
+					if (slot[\wordpos].notNil) { attrs = attrs ++ " wordpos=\"" ++ slot[\wordpos] ++ "\"" };
+					if (slot[\con].notNil) { attrs = attrs ++ " con=\"" ++ slot[\con] ++ "\"" };
+					out = out ++ "<verse n=\"" ++ (vi+1) ++ "\"><syl" ++ attrs ++ ">"
+						++ PanolaMEI.pr_xmlEscape(slot[\syl]) ++ "</syl></verse>";
+				};
+			});
+			out;
+		};
 		var meiElement = { |ev, md, dt, tie, k|
 			var ts = tie.notNil.if({ " tie=\"" ++ tie ++ "\"" }, {""});
-			// articulation only on a whole note or the first tied fragment (not on continuations)
-			var aa = (((ev[\articStr] ? "") != "") and: { tie.isNil or: { tie == "i" } }).if({ " artic=\"" ++ ev[\articStr] ++ "\"" }, { "" });
+			// articulation and lyrics only on a whole note or the first tied fragment (not on continuations)
+			var firstFrag = tie.isNil or: { tie == "i" };
+			var aa = (((ev[\articStr] ? "") != "") and: { firstFrag }).if({ " artic=\"" ++ ev[\articStr] ++ "\"" }, { "" });
+			var vv = firstFrag.if({ verseXml.(ev) }, { "" });
 			if (ev[\rest]) { "<rest" ++ durAttrs.(md,dt) ++ "/>" } {
 				if (ev[\pnames].size == 1) {
-					"<note" ++ durAttrs.(md,dt) ++ aa ++ " oct=\"" ++ ev[\octs][0] ++ "\" pname=\"" ++ ev[\pnames][0] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][0], ev[\accids][0], k)) ++ ts ++ "/>"
+					var head = "<note" ++ durAttrs.(md,dt) ++ aa ++ " oct=\"" ++ ev[\octs][0] ++ "\" pname=\"" ++ ev[\pnames][0] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][0], ev[\accids][0], k)) ++ ts;
+					(vv == "").if({ head ++ "/>" }, { head ++ ">" ++ vv ++ "</note>" })
 				} {
 					var inner = "";
 					ev[\pnames].size.do({ |c| inner = inner ++ "<note oct=\"" ++ ev[\octs][c] ++ "\" pname=\"" ++ ev[\pnames][c] ++ "\"" ++ accidS.(accidInKey.(ev[\pnames][c], ev[\accids][c], k)) ++ ts ++ "/>" });
-					"<chord" ++ durAttrs.(md,dt) ++ aa ++ ">" ++ inner ++ "</chord>"
+					"<chord" ++ durAttrs.(md,dt) ++ aa ++ ">" ++ inner ++ vv ++ "</chord>"
 				}
 			}
 		};
@@ -373,7 +392,7 @@ PanolaMEI {
 						// (iii) reduce a note/rest donor to its remainder (tied in when a note) for the next iteration
 						if (canDonor) {
 							if (hasRemainder) {
-								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "").put(\hairpin, "").put(\clef, "") );
+								units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\tieIn, compRest.not).put(\dynMark, nil).put(\slur, "").put(\hairpin, "").put(\clef, "").put(\lyrics, nil) );
 							} { consumedDonor = true };
 						};
 						completed = true;
@@ -624,6 +643,37 @@ PanolaMEI {
 			};
 			"<staffGrp>" ++ out ++ "</staffGrp>";
 		};
+		// bind lyric slots to events: for each verse, walk the events assigning the next slot to each
+		// NON-REST note (a rest consumes no slot; a melisma slot advances but yields no syllable). Sets
+		// ev[\lyrics] = an Array over verses (a slot Event or nil), or nil on a rest. Warns on overflow.
+		var attachLyrics = { |events, verseSlotLists, voiceIndex|
+			var ptrs = Array.fill(verseSlotLists.size, 0);
+			events.do({ |ev|
+				if (ev[\rest]) { ev[\lyrics] = nil } {
+					ev[\lyrics] = verseSlotLists.collect({ |slots, vi|
+						var p = ptrs[vi], slot = (p < slots.size).if({ slots[p] }, { nil });
+						ptrs[vi] = p + 1;
+						(slot.notNil and: { slot[\melisma] != true }).if({ slot }, { nil });
+					});
+				};
+			});
+			verseSlotLists.do({ |slots, vi|
+				if (ptrs[vi] < slots.size) {
+					("PanolaMEI: " ++ (slots.size - ptrs[vi]) ++ " lyric syllables past the end of voice "
+						++ (voiceIndex+1) ++ " verse " ++ (vi+1) ++ " — dropped").warn;
+				};
+			});
+			events;
+		};
+		// per staff, normalize the lyrics arg into an Array (per verse) of slot-arrays.
+		var lyricSlotsFor = { |vi|
+			var entry = (lyrics.notNil and: { vi < lyrics.size }).if({ lyrics[vi] }, { nil });
+			var verseLines = case
+				{ entry.isNil } { [] }
+				{ entry.isString } { [ entry ] }
+				{ true } { entry };
+			verseLines.collect({ |ln| PanolaMEI.pr_parseLyricLine(ln) });
+		};
 		var eventsOf = { |panola|
 			var names = panola.notationnotePattern.asStream.all;
 			var durs = panola.notationdurationPattern.asStream.all;
@@ -651,7 +701,12 @@ PanolaMEI {
 		var keyFor = { |i| atFor.(i)[\key] };
 		var m0 = meterFor.(1), k0 = keyFor.(1);
 		clefs = clefs ? voices.collect({ \treble });
-		perVoice = voices.collect({ |p| voiceToMeasures.(annotateExpression.(eventsOf.(p)), meterFor, keyFor) });
+		if (lyrics.notNil and: { lyrics.size > voices.size }) {
+			("PanolaMEI: lyrics has " ++ lyrics.size ++ " entries but only " ++ voices.size ++ " voices — extra ignored").warn;
+		};
+		perVoice = voices.collect({ |p, vi|
+			voiceToMeasures.(attachLyrics.(annotateExpression.(eventsOf.(p)), lyricSlotsFor.(vi), vi), meterFor, keyFor);
+		});
 		nm = perVoice.collect({ |v| v[\measures].size }).maxItem;
 		// pad short voices with a whole-measure rest sized to THAT measure's bar length (meterFor of the
 		// 1-based number of the measure being appended).
