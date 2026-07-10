@@ -748,7 +748,7 @@ PanolaMEI {
 			if (esc) { word = word.add([\ch, ch]); esc = false; } {
 				case
 				{ ch == $\\ } { esc = true }
-				{ (ch == $ ) or: { ch == $\t } } { flushWord.value }
+				{ (ch == $ ) or: { ch == $\t } or: { ch == $\r } or: { ch == $\n } } { flushWord.value }
 				{ ch == $- } { word = word.add(\hy) }
 				{ ch == $_ } { word = word.add(\us) }
 				{ true } { word = word.add([\ch, ch]) };
