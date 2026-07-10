@@ -708,4 +708,67 @@ PanolaMEI {
 			++ "<scoreDef meter.count=\"" ++ m0[\count] ++ "\" meter.unit=\"" ++ m0[\den] ++ "\" key.sig=\"" ++ keyToSig.(k0) ++ "\">"
 			++ staffGrp.(voices.size, clefs, braces) ++ "</scoreDef><section>" ++ body ++ "</section></score></mdiv></body></music></mei>");
 	}
+
+	/*
+	[classmethod.pr_parseLyricLine]
+	description = "(private) tokenize one lyrics verse line into an Array of slots. Whitespace separates words, teletype::-:: separates syllables within a word (a hyphen is drawn), a whole-token teletype::_:: is a melisma (the next note holds the previous syllable), and teletype::\\:: escapes the next character literally (teletype::\\ :: = a space inside a syllable, teletype::\\-::/teletype::\\_:: = a literal hyphen/underscore, teletype::\\\":: = a quote). A multi-syllable word gets wordpos i/m/t and con=d on all but its last syllable so the renderer draws the connecting hyphens."
+	[classmethod.pr_parseLyricLine.args]
+	line = "one verse line (a String)"
+	[classmethod.pr_parseLyricLine.returns]
+	what = "an Array of Events: ( syl: String, wordpos: \"i\"|\"m\"|\"t\"|nil, con: \"d\"|nil ) for a syllable, or ( melisma: true ) for a held note"
+	*/
+	*pr_parseLyricLine {
+		| line |
+		var slots = [], word = [], esc = false, flushWord;
+		flushWord = {
+			if (word.size > 0) {
+				if ((word.size == 1) and: { word[0] == \us }) {
+					slots = slots.add(( melisma: true ));
+				} {
+					var syls = [[]];
+					word.do({ |t|
+						if (t == \hy) { syls = syls.add([]) } {
+							syls[syls.size-1] = syls[syls.size-1].add((t == \us).if({ $_ }, { t[1] }));
+						};
+					});
+					syls = syls.collect({ |cs| String.newFrom(cs) });
+					syls.do({ |s, idx|
+						var wp = nil, con = nil;
+						if (syls.size > 1) {
+							wp = (idx == 0).if({ "i" }, { (idx == (syls.size-1)).if({ "t" }, { "m" }) });
+							con = (idx < (syls.size-1)).if({ "d" }, { nil });
+						};
+						slots = slots.add(( syl: s, wordpos: wp, con: con ));
+					});
+				};
+				word = [];
+			};
+		};
+		line.do({ |ch|
+			if (esc) { word = word.add([\ch, ch]); esc = false; } {
+				case
+				{ ch == $\\ } { esc = true }
+				{ (ch == $ ) or: { ch == $\t } } { flushWord.value }
+				{ ch == $- } { word = word.add(\hy) }
+				{ ch == $_ } { word = word.add(\us) }
+				{ true } { word = word.add([\ch, ch]) };
+			};
+		});
+		if (esc) { word = word.add([\ch, $\\]) };
+		flushWord.value;
+		^slots;
+	}
+
+	/*
+	[classmethod.pr_xmlEscape]
+	description = "(private) escape the XML text-content metacharacters & < > in a String, so free-form lyric text is safe inside <syl>."
+	[classmethod.pr_xmlEscape.args]
+	s = "a String"
+	[classmethod.pr_xmlEscape.returns]
+	what = "the String with & < > replaced by &amp; &lt; &gt;"
+	*/
+	*pr_xmlEscape {
+		| s |
+		^s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
 }
