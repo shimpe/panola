@@ -32,6 +32,14 @@ A per-note teletype::@hairpin^cresc^:: (or teletype::dim::) ... teletype::@hairp
 
 Forced breaks: pass teletype::pageBreaks:: / teletype::systemBreaks:: (Arrays of 1-based measure numbers) to start a new strong::page:: (teletype::<pb/>::) or strong::system:: (teletype::<sb/>::) at those measures. Page breaks switch to manual pagination (auto page-fill off); system breaks keep auto pagination. The renderer selects the mode from the encoded breaks.
 
+strong::Lyrics:: — pass teletype::lyrics:: (an Array parallel to teletype::voices::; each entry a list of
+verse-line Strings, a bare String for one verse, or nil) to engrave sung text as teletype::<verse>/<syl>::.
+Within a verse line, whitespace separates words, teletype::-:: separates syllables (a hyphen is drawn via
+teletype::wordpos::/teletype::con="d"::), a whole-token teletype::_:: is a melisma (the next note holds the
+previous syllable), and teletype::\\:: escapes the next character (teletype::\\ :: for a literal space,
+teletype::\\_:: for a literal underscore). Syllables align to strong::non-rest:: notes (a rest is skipped),
+land on the strong::first tied fragment:: of a split note, and are XML-escaped. Lyrics are notation only.
+
 A single teletype::@art:: may strong::combine several articulations:: with teletype::+::, e.g.
 teletype::@art^staccato+accent^::, rendering them together as one space-separated teletype::artic::
 list (teletype::artic="acc stacc"::). Each teletype::+:: part may itself be a strong::sticky::
@@ -67,6 +75,7 @@ PanolaMEI {
 	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
 	pageBreaks = "an Array of 1-based measure numbers where a new PAGE starts (nil for none), emitting a mid-section teletype::<pb/>::. Verovio then paginates strong::only:: at these marks (manual pagination — auto page-fill is off)."
 	systemBreaks = "an Array of 1-based measure numbers where a new SYSTEM (line) starts (nil for none), emitting teletype::<sb/>::. Unlike pageBreaks, automatic pagination is kept."
+	lyrics = "an Array parallel to teletype::voices::. Each entry is nil (no lyrics on that staff), an Array of verse-line Strings (stacked as teletype::<verse n=\"1\">::, teletype::<verse n=\"2\">::, ...), or a bare String (one verse). Whitespace separates words, teletype::-:: separates syllables (drawing a hyphen), a whole-token teletype::_:: is a melisma, and teletype::\\:: escapes the next character. Syllables align to non-rest notes; a note tied across a barline carries its syllable on the first fragment only."
 	[classmethod.scoreAsMEI.returns]
 	what = "an MEI document (a String)"
 	*/

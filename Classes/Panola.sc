@@ -1042,6 +1042,7 @@ Panola {
 	meter = "time signature string, e.g. \"4/4\""
 	key = "key symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
 	clef = "clef symbol: \\treble, \\bass, \\alto, \\tenor"
+	lyrics = "a list of verse-line Strings for this one voice (or a bare String for a single verse; nil for none). Syllables align to non-rest notes: whitespace separates words, '-' separates syllables (drawing a hyphen), a whole-token '_' is a melisma, and '\\' escapes the next character."
 	[method.asMEI.returns]
 	what = "an MEI document (a String)"
 	*/
@@ -1059,6 +1060,9 @@ Panola {
 	changes = "an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure, each field carried forward; the teletype::measure: 1:: entry sets the initial meter and key (nil defaults to teletype::4/4:: / \\Cmajor). A mid-piece meter/key change emits a mid-section teletype::<scoreDef>::. See link::Classes/PanolaMEI#*scoreAsMEI:: for additive meters and inline teletype::@clef::."
 	clefs = "array of clef symbols, one per staff giving the initial clef (defaults to all treble)"
 	braces = "array of [firstStaff, lastStaff] 1-based ranges to join with a brace"
+	pageBreaks = "(see link::Classes/PanolaMEI#*scoreAsMEI::)"
+	systemBreaks = "(see link::Classes/PanolaMEI#*scoreAsMEI::)"
+	lyrics = "an Array parallel to voices; each entry is nil, an Array of verse-line Strings, or a bare String (one verse), engraved as MEI <verse>/<syl>. See link::Classes/PanolaMEI#*scoreAsMEI::."
 	[classmethod.scoreAsMEI.returns]
 	what = "an MEI document (a String)"
 	*/
@@ -1353,6 +1357,17 @@ pat[\score_withpedalhandling].play(TempoClock(120/60));
     [\treble], nil,
     [5],      // pageBreaks: new page at bar 5
     [3]);     // systemBreaks: new line at bar 3
+)
+
+// Lyrics: a separate line per staff, aligned to the non-rest notes. '-' splits a word into
+// syllables (a hyphen is drawn); '_' holds the previous syllable over a note (melisma); '\'
+// escapes a space or other character into a syllable. Pass a LIST of lines for several verses.
+(
+~mei = Panola.scoreAsMEI([Panola("c5_4 d5 e5 f5 g5_2")],
+    [ ( measure: 1, meter: "4/4", key: \Cmajor ) ],
+    [\treble], nil, nil, nil,
+    [ [ "Twin-kle twin-kle lit-tle star,",   // verse 1
+        "Up a-bove the world so high," ] ]); // verse 2
 )
 
 '''

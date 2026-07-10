@@ -63,6 +63,15 @@ array of clef symbols, one per staff giving the initial clef (defaults to all tr
 ARGUMENT:: braces
 array of [firstStaff, lastStaff] 1-based ranges to join with a brace
 
+ARGUMENT:: pageBreaks
+(see link::Classes/PanolaMEI#*scoreAsMEI::)
+
+ARGUMENT:: systemBreaks
+(see link::Classes/PanolaMEI#*scoreAsMEI::)
+
+ARGUMENT:: lyrics
+an Array parallel to voices; each entry is nil, an Array of verse-line Strings, or a bare String (one verse), engraved as MEI <verse>/<syl>. See link::Classes/PanolaMEI#*scoreAsMEI::.
+
 returns:: an MEI document (a String)
 
 INSTANCEMETHODS::
@@ -363,6 +372,9 @@ key symbol, e.g. \Cmajor, \Dminor, \CsharpMinor
 ARGUMENT:: clef
 clef symbol: \treble, \bass, \alto, \tenor
 
+ARGUMENT:: lyrics
+a list of verse-line Strings for this one voice (or a bare String for a single verse; nil for none). Syllables align to non-rest notes: whitespace separates words, '-' separates syllables (drawing a hyphen), a whole-token '_' is a melisma, and '\' escapes the next character.
+
 returns:: an MEI document (a String)
 
 EXAMPLES::
@@ -650,6 +662,17 @@ pat[\score_withpedalhandling].play(TempoClock(120/60));
     [\treble], nil,
     [5],      // pageBreaks: new page at bar 5
     [3]);     // systemBreaks: new line at bar 3
+)
+
+// Lyrics: a separate line per staff, aligned to the non-rest notes. '-' splits a word into
+// syllables (a hyphen is drawn); '_' holds the previous syllable over a note (melisma); '\'
+// escapes a space or other character into a syllable. Pass a LIST of lines for several verses.
+(
+~mei = Panola.scoreAsMEI([Panola("c5_4 d5 e5 f5 g5_2")],
+    [ ( measure: 1, meter: "4/4", key: \Cmajor ) ],
+    [\treble], nil, nil, nil,
+    [ [ "Twin-kle twin-kle lit-tle star,",   // verse 1
+        "Up a-bove the world so high," ] ]); // verse 2
 )
 
 
