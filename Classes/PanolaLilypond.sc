@@ -231,21 +231,50 @@ PanolaLilypond {
 				}
 			};
 		};
+		var groupEvents = { |events|
+			var units = [], i = 0, eps = 1e-6, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
+			while { i < events.size } {
+				var ev = events[i];
+				var g = ev[\mult].gcd(ev[\div]);
+				var degenerate = ((ev[\div] / g) == 1) or: { (ev[\mult] / g) == 1 };
+				if (((ev[\mult] == 1) and: { ev[\div] == 1 }) or: { degenerate }) {
+					units = units.add(( kind: \normal, ev: ev )); i = i + 1;
+				} {
+					var m = ev[\mult], d = ev[\div], members = [], acc = 0.0, closed = false;
+					while { (i < events.size) and: { (events[i][\mult] == m) and: { events[i][\div] == d } } and: { closed.not } } {
+						members = members.add(events[i]); acc = acc + events[i][\beats]; i = i + 1;
+						if (containers.any({ |c| (acc - c).abs < eps })) { closed = true };
+					};
+					units = units.add(( kind: \tuplet, num: d, numbase: m, members: members, beats: acc, complete: closed ));
+				};
+			};
+			units;
+		};
 		var voiceToMeasures = { |events, meterStr|
 			var mdesc = parseMeter.(meterStr), bb = mdesc[\bb], pmeter = mdesc[\pmeter];
 			var measures = [[]], pos = 0.0, eps = 1e-6;
-			events.do({ |ev|
-				var remaining = ev[\beats];
-				while { remaining > eps } {
-					var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-					var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter);
-					pieces.do({ |pc, c|
-						var isLast = lastFrag and: { c == (pieces.size - 1) };
-						var tieOut = ev[\rest].not and: { isLast.not };
-						measures[measures.size-1] = measures[measures.size-1].add(noteLy.(ev, pc[0], pc[1], tieOut));
-					});
-					pos = pos + take; remaining = remaining - take;
+			var units = groupEvents.(events);
+			units.do({ |unit|
+				if (unit[\kind] == \tuplet) {
+					var inner = unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false) }).join(" ");
+					var tok = "\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { " ++ inner ++ " }";
+					measures[measures.size-1] = measures[measures.size-1].add(tok);
+					pos = pos + unit[\beats];
 					if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+				} {
+					var ev = unit[\ev];
+					var remaining = ev[\beats];
+					while { remaining > eps } {
+						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
+						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter);
+						pieces.do({ |pc, c|
+							var isLast = lastFrag and: { c == (pieces.size - 1) };
+							var tieOut = ev[\rest].not and: { isLast.not };
+							measures[measures.size-1] = measures[measures.size-1].add(noteLy.(ev, pc[0], pc[1], tieOut));
+						});
+						pos = pos + take; remaining = remaining - take;
+						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+					};
 				};
 			});
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
