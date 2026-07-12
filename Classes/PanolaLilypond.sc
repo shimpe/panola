@@ -286,6 +286,11 @@ PanolaLilypond {
 			});
 			events;
 		};
+		var resolveChanges = { |changesArg|
+			var srt = (changesArg ? [( measure: 1, meter: "4/4", key: \Cmajor )]).copy.sort({ |a, b| a[\measure] < b[\measure] });
+			var cm = "4/4", ck = \Cmajor;
+			srt.collect({ |c| cm = c[\meter] ? cm; ck = c[\key] ? ck; ( measure: c[\measure] ? 1, meter: cm, key: ck ) });
+		};
 		var vals = [[1,0,4.0],[2,1,3.0],[2,0,2.0],[4,1,1.5],[4,0,1.0],[8,1,0.75],[8,0,0.5],[16,0,0.25]];
 		var decompose = { |beats|
 			var out = [], remaining = beats, eps = 1e-6;
@@ -333,9 +338,10 @@ PanolaLilypond {
 				pmeter: PanolaMeter(num, den, groups) );
 		};
 		var noteLy = { |ev, md, dt, tieOut, firstFrag = true|
-			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" }), post = "";
+			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" }), post = "", clefPre = "", body;
 			if (firstFrag) {
 				var slurV = ev[\slur] ? "", hpV = ev[\hairpin] ? "";
+				if ((ev[\clef] ? "") != "") { clefPre = "\\clef " ++ PanolaLilypond.pr_clefLy(ev[\clef].asSymbol) ++ " " };
 				if (ev[\dynMark].notNil) { post = post ++ PanolaLilypond.pr_dynLy(ev[\dynMark]) };
 				post = post ++ PanolaLilypond.pr_artLy(ev[\articStr] ? "");
 				post = post ++ case
@@ -351,7 +357,7 @@ PanolaLilypond {
 					{ hpV == "enddim" } { "\\!\\>" }
 					{ true } { "" };
 			};
-			if (ev[\rest]) { "r" ++ d ++ tie ++ post } {
+			body = if (ev[\rest]) { "r" ++ d ++ tie ++ post } {
 				if (ev[\pnames].size == 1) {
 					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie ++ post
 				} {
@@ -359,6 +365,7 @@ PanolaLilypond {
 						++ ">" ++ d ++ tie ++ post
 				}
 			};
+			clefPre ++ body;
 		};
 		var groupEvents = { |events|
 			var units = [], i = 0, eps = 1e-6, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
@@ -396,13 +403,13 @@ PanolaLilypond {
 			};
 			out;
 		};
-		var voiceToMeasures = { |events, meterStr|
-			var mdesc = parseMeter.(meterStr), bb = mdesc[\bb], pmeter = mdesc[\pmeter];
+		var voiceToMeasures = { |events, meterForFn|
+			var md0 = meterForFn.(1), bb = md0[\bb], pmeter = md0[\pmeter];
 			var measures = [[]], pos = 0.0, eps = 1e-6;
 			var units = groupEvents.(events), ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
+			var refreshMeter = { var d = meterForFn.(measures.size); bb = d[\bb]; pmeter = d[\pmeter]; };
 			while { ui < units.size } {
 				var unit = units[ui], consumedDonor = false, completed = false;
-				// (A) music21-style completion of an incomplete *m/d run
 				if ((unit[\kind] == \tuplet) and: { unit[\complete].not }) {
 					var container = containers.detect({ |cc| cc >= (unit[\beats] - eps) }),
 						remainder = container.notNil.if({ container - unit[\beats] }, { 0.0 }),
@@ -427,7 +434,7 @@ PanolaLilypond {
 						measures[measures.size-1] = measures[measures.size-1].add(
 							"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { " ++ toks.join(" ") ++ " }");
 						pos = pos + container;
-						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0; refreshMeter.() };
 						if (hasRemainder) {
 							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\dynMark, nil).put(\articStr, "").put(\slur, "").put(\hairpin, "") );
 						} { consumedDonor = true };
@@ -439,7 +446,6 @@ PanolaLilypond {
 				};
 				if (completed.not) {
 					if (unit[\kind] == \tuplet) {
-						// (B) complete tuplet: atomic UNLESS it crosses a barline -> per-measure split
 						var tbeats = unit[\beats],
 							crosses = (tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps },
 							ratio = ( num: unit[\num], numbase: unit[\numbase] ),
@@ -486,6 +492,7 @@ PanolaLilypond {
 								if (bi < (split.size - 1)) { measures = measures.add([]) };
 							});
 							pos = (pos + tbeats) - ((split.size - 1) * bb);
+							refreshMeter.();
 						} {
 							if (crosses) {
 								("PanolaLilypond: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (fragment not expressible at the tuplet ratio)").warn;
@@ -494,10 +501,9 @@ PanolaLilypond {
 								"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { "
 								++ unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false, true) }).join(" ") ++ " }");
 							pos = pos + tbeats;
-							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
+							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0); refreshMeter.() };
 						};
 					} {
-						// (C) normal note/rest: meter split + tie, wrapping any tuplet fragments the splitter produced
 						var ev = unit[\ev];
 						var remaining = ev[\beats], firstFrag = true;
 						while { remaining > eps } {
@@ -511,7 +517,7 @@ PanolaLilypond {
 							});
 							wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r[\str]) });
 							pos = pos + take; remaining = remaining - take;
-							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0; refreshMeter.() };
 						};
 					};
 				};
@@ -532,23 +538,37 @@ PanolaLilypond {
 			};
 			acc;
 		};
-		var resolved, meter0, key0, mdesc0, barRest, perVoice, nm, staffStrs, spine, out, allEvents, lyricsStr;
-		resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
-		meter0 = (resolved[0][\meter]) ? "4/4";
-		key0 = (resolved[0][\key]) ? \Cmajor;
+		var resolved, atFor, meterForFn, keyForFn, allEvents, perVoice, nm, staffStrs, spine, lyricsStr, out;
+		resolved = resolveChanges.(changes);
+		atFor = { |i| var r = resolved.select({ |c| c[\measure] <= i }).last; r ? ( measure: 1, meter: "4/4", key: \Cmajor ) };
+		meterForFn = { |i| parseMeter.(atFor.(i)[\meter]) };
+		keyForFn = { |i| atFor.(i)[\key] };
 		clefs = clefs ? voices.collect({ \treble });
-		mdesc0 = parseMeter.(meter0);
 		allEvents = voices.collect({ |p, vi| attachLyrics.(annotateExpression.(eventsOf.(p)), lyricSlotsFor.(vi), vi) });
-		perVoice = allEvents.collect({ |evs| voiceToMeasures.(evs, meter0) });
+		perVoice = allEvents.collect({ |evs| voiceToMeasures.(evs, meterForFn) });
 		nm = perVoice.collect({ |m| m.size }).maxItem.max(1);
-		barRest = "r1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den];
-		perVoice = perVoice.collect({ |measures| while { measures.size < nm } { measures = measures.add([barRest]) }; measures });
+		perVoice = perVoice.collect({ |measures|
+			while { measures.size < nm } {
+				var md = meterForFn.(measures.size + 1);
+				measures = measures.add([ "r1*" ++ md[\num] ++ "/" ++ md[\den] ]);
+			};
+			measures;
+		});
 		staffStrs = perVoice.collect({ |measures, vi|
 			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
 				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
 		});
-		spine = "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0) ++ " ";
-		nm.do({ |idx| spine = spine ++ "s1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den] ++ ((idx + 1) < nm).if({ " | " }, { " " }); });
+		spine = "global = { ";
+		nm.do({ |idx|
+			var m1 = idx + 1, cur = meterForFn.(m1), curKey = keyForFn.(m1),
+				prev = (m1 > 1).if({ meterForFn.(m1 - 1) }, { nil }),
+				prevKey = (m1 > 1).if({ keyForFn.(m1 - 1) }, { nil }),
+				meterChanged = (m1 == 1) or: { (cur[\count] != prev[\count]) or: { cur[\den] != prev[\den] } },
+				keyChanged = (m1 == 1) or: { curKey != prevKey };
+			if (meterChanged) { spine = spine ++ PanolaLilypond.pr_meterLy(atFor.(m1)[\meter]) ++ " " };
+			if (keyChanged) { spine = spine ++ "\\key " ++ PanolaLilypond.pr_keyLy(curKey) ++ " " };
+			spine = spine ++ "s1*" ++ cur[\num] ++ "/" ++ cur[\den] ++ (m1 < nm).if({ " | " }, { " " });
+		});
 		spine = spine ++ "\\bar \"|.\" }";
 		lyricsStr = "";
 		voices.do({ |p, vi|
