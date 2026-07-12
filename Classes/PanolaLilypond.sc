@@ -250,33 +250,143 @@ PanolaLilypond {
 			};
 			units;
 		};
+		// group consecutive fragment-records sharing a tuplet ratio into one \tuplet bracket
+		var wrapTuplets = { |recs|
+			var out = [], i = 0;
+			while { i < recs.size } {
+				var rec = recs[i], tup = rec[\tup];
+				if (tup.notNil) {
+					var run = [rec], j = i + 1;
+					while { (j < recs.size) and: { recs[j][\tup].notNil }
+						and: { recs[j][\tup][\num] == tup[\num] } and: { recs[j][\tup][\numbase] == tup[\numbase] } } {
+						run = run.add(recs[j]); j = j + 1;
+					};
+					out = out.add(( str: "\\tuplet " ++ tup[\num] ++ "/" ++ tup[\numbase] ++ " { " ++ run.collect({ |r| r[\str] }).join(" ") ++ " }", tup: nil ));
+					i = j;
+				} { out = out.add(rec); i = i + 1 };
+			};
+			out;
+		};
 		var voiceToMeasures = { |events, meterStr|
 			var mdesc = parseMeter.(meterStr), bb = mdesc[\bb], pmeter = mdesc[\pmeter];
 			var measures = [[]], pos = 0.0, eps = 1e-6;
-			var units = groupEvents.(events);
-			units.do({ |unit|
-				if (unit[\kind] == \tuplet) {
-					var inner = unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false) }).join(" ");
-					var tok = "\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { " ++ inner ++ " }";
-					measures[measures.size-1] = measures[measures.size-1].add(tok);
-					pos = pos + unit[\beats];
-					if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
-				} {
-					var ev = unit[\ev];
-					var remaining = ev[\beats];
-					while { remaining > eps } {
-						var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
-						var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter);
-						pieces.do({ |pc, c|
-							var isLast = lastFrag and: { c == (pieces.size - 1) };
-							var tieOut = ev[\rest].not and: { isLast.not };
-							measures[measures.size-1] = measures[measures.size-1].add(noteLy.(ev, pc[0], pc[1], tieOut));
+			var units = groupEvents.(events), ui = 0, containers = [0.25, 0.5, 1.0, 2.0, 4.0];
+			while { ui < units.size } {
+				var unit = units[ui], consumedDonor = false, completed = false;
+				// (A) music21-style completion of an incomplete *m/d run
+				if ((unit[\kind] == \tuplet) and: { unit[\complete].not }) {
+					var container = containers.detect({ |cc| cc >= (unit[\beats] - eps) }),
+						remainder = container.notNil.if({ container - unit[\beats] }, { 0.0 }),
+						donor = ((ui + 1) < units.size).if({ units[ui + 1] }, { nil }),
+						inBar = container.notNil and: { (pos + container) <= (bb + eps) },
+						canDonor = inBar and: { donor.notNil } and: { donor[\kind] == \normal }
+							and: { (donor[\ev][\beats] + eps) >= remainder };
+					if (canDonor) {
+						var toks = [], compSp = PanolaDurationSpeller.spell(PanolaRational.fromFloat(remainder)),
+							dev = donor[\ev], compRest = dev[\rest], hasRemainder = (dev[\beats] - remainder) > eps,
+							restEv = ( rest: true );
+						unit[\members].do({ |mev| toks = toks.add(noteLy.(mev, mev[\meidur], mev[\dots], false)); });
+						compSp[\components].do({ |x, ci|
+							var hasPrev = (ci > 0), hasNext = (ci < (compSp[\components].size - 1)) or: { hasRemainder },
+								ctie = compRest.if({ nil }, {
+									(hasPrev and: { hasNext }).if({ "m" },
+										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) }) }),
+								compEv = compRest.if({ restEv }, { dev }),
+								tieOut = (ctie == "i") or: { ctie == "m" };
+							toks = toks.add(noteLy.(compEv, x[\meidur], x[\dots], tieOut));
 						});
-						pos = pos + take; remaining = remaining - take;
+						measures[measures.size-1] = measures[measures.size-1].add(
+							"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { " ++ toks.join(" ") ++ " }");
+						pos = pos + container;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						if (hasRemainder) {
+							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder) );
+						} { consumedDonor = true };
+						completed = true;
+					} {
+						("PanolaLilypond: incomplete tuplet (" ++ unit[\members].size ++ " notes, ratio "
+							++ unit[\num] ++ ":" ++ unit[\numbase] ++ ") — emitting a partial bracket").warn;
 					};
 				};
-			});
+				if (completed.not) {
+					if (unit[\kind] == \tuplet) {
+						// (B) complete tuplet: atomic UNLESS it crosses a barline -> per-measure split
+						var tbeats = unit[\beats],
+							crosses = (tbeats > ((bb - pos) + eps)) and: { (bb - pos) > eps },
+							ratio = ( num: unit[\num], numbase: unit[\numbase] ),
+							buildSplit = {
+								var buckets = [[]], sub = pos, ok = true, speller = PanolaDurationSpeller.new,
+									fragAt = { |d|
+										var sp = speller.spell(PanolaRational.fromFloat(d)), c;
+										(sp[\inexpressible] or: { sp[\components].size != 1 }).if({ nil }, {
+											c = sp[\components][0];
+											((c[\tuplets].size == 1)
+												and: { c[\tuplets][0][\actual] == ratio[\num] }
+												and: { c[\tuplets][0][\normal] == ratio[\numbase] }).if(
+												{ ( meidur: c[\meidur], dots: c[\dots] ) }, { nil }); });
+									};
+								unit[\members].do({ |mev|
+									var mb = mev[\beats], firstPiece = true;
+									while { (mb > eps) and: { ok } } {
+										var room = bb - sub;
+										(mb <= (room + eps)).if({
+											var md = firstPiece.if({ mev[\meidur] }, { var f = fragAt.(mb); f.isNil.if({ ok = false; nil }, { f[\meidur] }) }),
+												dt = firstPiece.if({ mev[\dots] }, { var f = fragAt.(mb); f.isNil.if({ 0 }, { f[\dots] }) });
+											if (ok) {
+												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
+													( str: noteLy.(mev, md, dt, false), tup: ratio ));
+											};
+											sub = sub + mb; mb = 0;
+											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
+										}, {
+											var f = fragAt.(room);
+											f.isNil.if({ ok = false }, {
+												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
+													( str: noteLy.(mev, f[\meidur], f[\dots], true), tup: ratio ));
+												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
+											});
+										});
+									};
+								});
+								ok.if({ buckets }, { nil });
+							},
+							split = crosses.if({ buildSplit.value }, { nil });
+						if (split.notNil) {
+							split.do({ |bucket, bi|
+								wrapTuplets.(bucket).do({ |r| measures[measures.size - 1] = measures[measures.size - 1].add(r[\str]) });
+								if (bi < (split.size - 1)) { measures = measures.add([]) };
+							});
+							pos = (pos + tbeats) - ((split.size - 1) * bb);
+						} {
+							if (crosses) {
+								("PanolaLilypond: tuplet crosses a barline; kept whole in bar " ++ measures.size ++ " (fragment not expressible at the tuplet ratio)").warn;
+							};
+							measures[measures.size-1] = measures[measures.size-1].add(
+								"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { "
+								++ unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false) }).join(" ") ++ " }");
+							pos = pos + tbeats;
+							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
+						};
+					} {
+						// (C) normal note/rest: meter split + tie, wrapping any tuplet fragments the splitter produced
+						var ev = unit[\ev];
+						var remaining = ev[\beats];
+						while { remaining > eps } {
+							var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
+							var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), frecs = [];
+							pieces.do({ |pc, c|
+								var isLast = lastFrag and: { c == (pieces.size - 1) };
+								var tieOut = ev[\rest].not and: { isLast.not };
+								frecs = frecs.add(( str: noteLy.(ev, pc[0], pc[1], tieOut), tup: pc[3] ));
+							});
+							wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r[\str]) });
+							pos = pos + take; remaining = remaining - take;
+							if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+						};
+					};
+				};
+				ui = consumedDonor.if({ ui + 2 }, { ui + 1 });
+			};
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
 			measures;
 		};
