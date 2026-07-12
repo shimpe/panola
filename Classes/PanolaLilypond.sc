@@ -35,4 +35,39 @@ PanolaLilypond {
 		k.abs.do({ marks = marks ++ (k > 0).if({ "'" }, { "," }) });
 		^pname.asString.toLower ++ acc ++ marks;
 	}
+
+	/*
+	[classmethod.pr_durLy]
+	description = "(private) a MEI/Panola duration value token (\"1\",\"2\",\"4\",\"8\",... or \"breve\"/\"long\"/\"maxima\") plus a dot count as a LilyPond duration, e.g. teletype::4.::"
+	[classmethod.pr_durLy.args]
+	md = "the note-value token (a String or Integer)"
+	dots = "the number of augmentation dots"
+	[classmethod.pr_durLy.returns]
+	what = "a LilyPond duration String"
+	*/
+	*pr_durLy {
+		| md, dots |
+		var base = case
+			{ md.asString == "breve" } { "\\breve" }
+			{ md.asString == "long" } { "\\longa" }
+			{ md.asString == "maxima" } { "\\maxima" }
+			{ true } { md.asString };
+		var d = ""; dots.do({ d = d ++ "." });
+		^base ++ d;
+	}
+
+	/*
+	[classmethod.pr_clefLy]
+	description = "(private) a clef Symbol (\\treble \\bass \\alto \\tenor) as a LilyPond clef name; an unknown clef warns and yields \"treble\"."
+	[classmethod.pr_clefLy.args]
+	clefSym = "a clef Symbol"
+	[classmethod.pr_clefLy.returns]
+	what = "a LilyPond clef-name String"
+	*/
+	*pr_clefLy {
+		| clefSym |
+		var m = IdentityDictionary[\treble->"treble", \bass->"bass", \alto->"alto", \tenor->"tenor"];
+		var v = m[clefSym];
+		^v.isNil.if({ ("PanolaLilypond: unknown clef '" ++ clefSym ++ "'; using treble").warn; "treble" }, { v });
+	}
 }
