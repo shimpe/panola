@@ -1,7 +1,7 @@
 (
   name: "Panola",
   summary: "Quark to simplify music composition with patterns",
-  version: "0.8.0",
+  version: "0.9.0",
   schelp: "Panola.schelp",
   dependencies: ["https://github.com/shimpe/scparco@tags/0.0.6", "https://github.com/shimpe/phijack@tags/0.0.1"],
   license: "GPL",
