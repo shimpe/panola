@@ -538,7 +538,7 @@ PanolaLilypond {
 			};
 			acc;
 		};
-		var resolved, atFor, meterForFn, keyForFn, allEvents, perVoice, nm, staffStrs, spine, out, hasBreaks, sysGap;
+		var resolved, atFor, meterForFn, keyForFn, allEvents, perVoice, nm, staffStrs, spine, out;
 		resolved = resolveChanges.(changes);
 		atFor = { |i| var r = resolved.select({ |c| c[\measure] <= i }).last; r ? ( measure: 1, meter: "4/4", key: \Cmajor ) };
 		meterForFn = { |i| parseMeter.(atFor.(i)[\meter]) };
@@ -570,12 +570,7 @@ PanolaLilypond {
 				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ lyricSet ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>"
 				++ lyr;
 		});
-		// -dcrop removes vertical space between systems (a documented LilyPond limitation), so several
-		// systems on one cropped image clash. Force a gap above each system with a per-column override
-		// (the first alignment-distances entry; LilyPond keeps default intra-system spacing).
-		hasBreaks = ((systemBreaks ? []).size > 0) or: { (pageBreaks ? []).size > 0 };
-		sysGap = "\\overrideProperty Score.NonMusicalPaperColumn.line-break-system-details #'((alignment-distances . (16))) ";
-		spine = "global = { " ++ (hasBreaks.if({ sysGap }, { "" }));
+		spine = "global = { ";
 		nm.do({ |idx|
 			var m1 = idx + 1, cur = meterForFn.(m1), curKey = keyForFn.(m1),
 				prev = (m1 > 1).if({ meterForFn.(m1 - 1) }, { nil }),
@@ -585,8 +580,8 @@ PanolaLilypond {
 			if (meterChanged) { spine = spine ++ PanolaLilypond.pr_meterLy(atFor.(m1)[\meter]) ++ " " };
 			if (keyChanged) { spine = spine ++ "\\key " ++ PanolaLilypond.pr_keyLy(curKey) ++ " " };
 			if (m1 > 1) {
-				if ((pageBreaks ? []).includes(m1)) { spine = spine ++ sysGap ++ "\\pageBreak " }
-				{ if ((systemBreaks ? []).includes(m1)) { spine = spine ++ sysGap ++ "\\break " } };
+				if ((pageBreaks ? []).includes(m1)) { spine = spine ++ "\\pageBreak " }
+				{ if ((systemBreaks ? []).includes(m1)) { spine = spine ++ "\\break " } };
 			};
 			spine = spine ++ "s1*" ++ cur[\num] ++ "/" ++ cur[\den] ++ (m1 < nm).if({ " | " }, { " " });
 		});
