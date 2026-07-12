@@ -567,6 +567,10 @@ PanolaLilypond {
 				keyChanged = (m1 == 1) or: { curKey != prevKey };
 			if (meterChanged) { spine = spine ++ PanolaLilypond.pr_meterLy(atFor.(m1)[\meter]) ++ " " };
 			if (keyChanged) { spine = spine ++ "\\key " ++ PanolaLilypond.pr_keyLy(curKey) ++ " " };
+			if (m1 > 1) {
+				if ((pageBreaks ? []).includes(m1)) { spine = spine ++ "\\pageBreak " }
+				{ if ((systemBreaks ? []).includes(m1)) { spine = spine ++ "\\break " } };
+			};
 			spine = spine ++ "s1*" ++ cur[\num] ++ "/" ++ cur[\den] ++ (m1 < nm).if({ " | " }, { " " });
 		});
 		spine = spine ++ "\\bar \"|.\" }";
