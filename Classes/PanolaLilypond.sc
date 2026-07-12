@@ -95,7 +95,7 @@ PanolaLilypond {
 
 	/*
 	[classmethod.pr_meterLy]
-	description = "(private) a meter String as a LilyPond time-signature command. A plain numerator (teletype::\"7/8\"::) yields teletype::\\time 7/8::; an additive numerator (teletype::\"2+2+3/8\"::) yields a teletype::\\compoundMeter:: that both displays the additive signature and groups the auto-beaming."
+	description = "(private) a meter String as a LilyPond time-signature command. A plain numerator (teletype::\"7/8\"::) yields teletype::\\time 7/8::; an additive numerator (teletype::\"2+2+3/8\"::) yields a teletype::\\timeAbbrev:: (LilyPond >= 2.25.33) that both displays the additive signature and groups the auto-beaming."
 	[classmethod.pr_meterLy.args]
 	meterStr = "a meter String, e.g. \"4/4\" or \"2+2+3/8\""
 	[classmethod.pr_meterLy.returns]
@@ -105,7 +105,7 @@ PanolaLilypond {
 		| meterStr |
 		var parts = meterStr.split($/), numStr = parts[0], den = parts[1];
 		^(numStr.indexOf($+).notNil).if({
-			"\\compoundMeter #'(" ++ numStr.split($+).collect({ |g| "(" ++ g ++ " " ++ den ++ ")" }).join(" ") ++ ")";
+			"\\timeAbbrev #'(" ++ numStr.split($+).collect({ |g| "(" ++ g ++ " " ++ den ++ ")" }).join(" ") ++ ")";
 		}, {
 			"\\time " ++ numStr ++ "/" ++ den;
 		});
@@ -338,7 +338,7 @@ PanolaLilypond {
 				pmeter: PanolaMeter(num, den, groups) );
 		};
 		var noteLy = { |ev, md, dt, tieOut, firstFrag = true|
-			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" }), post = "", clefPre = "", body;
+			var d = PanolaLilypond.pr_durLy(md, dt), tie = (tieOut and: { ev[\rest].not }).if({ "~" }, { "" }), post = "", clefPre = "", body;
 			if (firstFrag) {
 				var slurV = ev[\slur] ? "", hpV = ev[\hairpin] ? "";
 				if ((ev[\clef] ? "") != "") { clefPre = "\\clef " ++ PanolaLilypond.pr_clefLy(ev[\clef].asSymbol) ++ " " };
@@ -436,7 +436,7 @@ PanolaLilypond {
 						pos = pos + container;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0; refreshMeter.() };
 						if (hasRemainder) {
-							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\dynMark, nil).put(\articStr, "").put(\slur, "").put(\hairpin, "") );
+							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\dynMark, nil).put(\articStr, "").put(\slur, "").put(\hairpin, "").put(\clef, "") );
 						} { consumedDonor = true };
 						completed = true;
 					} {
@@ -555,8 +555,9 @@ PanolaLilypond {
 			measures;
 		});
 		staffStrs = perVoice.collect({ |measures, vi|
+			var lyricSet = (lyricSlotsFor.(vi).size > 0).if({ "\\set melismaBusyProperties = #'(tieMelismaBusy) " }, { "" });
 			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
-				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
+				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ lyricSet ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
 		});
 		spine = "global = { ";
 		nm.do({ |idx|
@@ -584,7 +585,7 @@ PanolaLilypond {
 				lyricsStr = lyricsStr ++ "  \\new Lyrics \\lyricsto \"v" ++ (vi+1) ++ "\" { " ++ toks.join(" ") ++ " }\n";
 			});
 		});
-		out = "\\version \"2.24.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
+		out = "\\version \"2.25.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
 			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ lyricsStr ++ ">> }\n";
 		^out;
 	}
