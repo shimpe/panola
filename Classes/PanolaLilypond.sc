@@ -538,7 +538,7 @@ PanolaLilypond {
 			};
 			acc;
 		};
-		var resolved, atFor, meterForFn, keyForFn, allEvents, perVoice, nm, staffStrs, spine, lyricsStr, out;
+		var resolved, atFor, meterForFn, keyForFn, allEvents, perVoice, nm, staffStrs, spine, out;
 		resolved = resolveChanges.(changes);
 		atFor = { |i| var r = resolved.select({ |c| c[\measure] <= i }).last; r ? ( measure: 1, meter: "4/4", key: \Cmajor ) };
 		meterForFn = { |i| parseMeter.(atFor.(i)[\meter]) };
@@ -556,8 +556,19 @@ PanolaLilypond {
 		});
 		staffStrs = perVoice.collect({ |measures, vi|
 			var lyricSet = (lyricSlotsFor.(vi).size > 0).if({ "\\set melismaBusyProperties = #'(tieMelismaBusy) " }, { "" });
+			var lyr = "";
+			// each verse's Lyrics goes right after THIS voice's staff, so it sits inside the staff group
+			// (under the staff, matching Verovio) rather than below the whole group.
+			lyricSlotsFor.(vi).do({ |slots, vv|
+				var toks = allEvents[vi].select({ |ev| ev[\rest].not }).collect({ |ev|
+					var slot = ev[\lyrics][vv];
+					slot.isNil.if({ "_" }, { PanolaLilypond.pr_lyricTok(slot) });
+				});
+				lyr = lyr ++ "\n    \\new Lyrics \\lyricsto \"v" ++ (vi+1) ++ "\" { " ++ toks.join(" ") ++ " }";
+			});
 			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
-				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ lyricSet ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
+				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ lyricSet ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>"
+				++ lyr;
 		});
 		spine = "global = { ";
 		nm.do({ |idx|
@@ -575,18 +586,8 @@ PanolaLilypond {
 			spine = spine ++ "s1*" ++ cur[\num] ++ "/" ++ cur[\den] ++ (m1 < nm).if({ " | " }, { " " });
 		});
 		spine = spine ++ "\\bar \"|.\" }";
-		lyricsStr = "";
-		voices.do({ |p, vi|
-			lyricSlotsFor.(vi).do({ |slots, vv|
-				var toks = allEvents[vi].select({ |ev| ev[\rest].not }).collect({ |ev|
-					var slot = ev[\lyrics][vv];
-					slot.isNil.if({ "_" }, { PanolaLilypond.pr_lyricTok(slot) });
-				});
-				lyricsStr = lyricsStr ++ "  \\new Lyrics \\lyricsto \"v" ++ (vi+1) ++ "\" { " ++ toks.join(" ") ++ " }\n";
-			});
-		});
 		out = "\\version \"2.25.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
-			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ lyricsStr ++ ">> }\n";
+			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ ">> }\n";
 		^out;
 	}
 }
