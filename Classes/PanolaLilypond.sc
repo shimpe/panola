@@ -70,4 +70,44 @@ PanolaLilypond {
 		var v = m[clefSym];
 		^v.isNil.if({ ("PanolaLilypond: unknown clef '" ++ clefSym ++ "'; using treble").warn; "treble" }, { v });
 	}
+
+	/*
+	[classmethod.pr_keyLy]
+	description = "(private) a key Symbol (e.g. \\Gmajor, \\FsharpMinor) as a LilyPond teletype::\\key:: argument, e.g. teletype::g \\major::; an unknown key warns and yields teletype::c \\major::. LilyPond auto-respells accidentals, so no per-note key logic is needed."
+	[classmethod.pr_keyLy.args]
+	keySym = "a key Symbol"
+	[classmethod.pr_keyLy.returns]
+	what = "a LilyPond key String, e.g. \"g \\\\major\""
+	*/
+	*pr_keyLy {
+		| keySym |
+		var t = IdentityDictionary[
+			\cmajor->"c \\major", \aminor->"a \\minor", \gmajor->"g \\major", \eminor->"e \\minor",
+			\dmajor->"d \\major", \bminor->"b \\minor", \amajor->"a \\major", \fsharpminor->"fs \\minor",
+			\emajor->"e \\major", \csharpminor->"cs \\minor", \bmajor->"b \\major", \gsharpminor->"gs \\minor",
+			\fmajor->"f \\major", \dminor->"d \\minor", \bflatmajor->"bf \\major", \gminor->"g \\minor",
+			\eflatmajor->"ef \\major", \cminor->"c \\minor", \aflatmajor->"af \\major", \fminor->"f \\minor",
+			\dflatmajor->"df \\major", \bflatminor->"bf \\minor"
+		];
+		var v = t[keySym.asString.toLower.asSymbol];
+		^v.isNil.if({ ("PanolaLilypond: unknown key '" ++ keySym ++ "'; using C major").warn; "c \\major" }, { v });
+	}
+
+	/*
+	[classmethod.pr_meterLy]
+	description = "(private) a meter String as a LilyPond time-signature command. A plain numerator (teletype::\"7/8\"::) yields teletype::\\time 7/8::; an additive numerator (teletype::\"2+2+3/8\"::) yields a teletype::\\compoundMeter:: that both displays the additive signature and groups the auto-beaming."
+	[classmethod.pr_meterLy.args]
+	meterStr = "a meter String, e.g. \"4/4\" or \"2+2+3/8\""
+	[classmethod.pr_meterLy.returns]
+	what = "a LilyPond time-signature command String"
+	*/
+	*pr_meterLy {
+		| meterStr |
+		var parts = meterStr.split($/), numStr = parts[0], den = parts[1];
+		^(numStr.indexOf($+).notNil).if({
+			"\\compoundMeter #'(" ++ numStr.split($+).collect({ |g| "(" ++ g ++ " " ++ den ++ ")" }).join(" ") ++ ")";
+		}, {
+			"\\time " ++ numStr ++ "/" ++ den;
+		});
+	}
 }
