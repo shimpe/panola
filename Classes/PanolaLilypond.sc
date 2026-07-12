@@ -110,4 +110,98 @@ PanolaLilypond {
 			"\\time " ++ numStr ++ "/" ++ den;
 		});
 	}
+
+	/*
+	[classmethod.scoreAsLilypond]
+	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). See link::Classes/PanolaMEI#*scoreAsMEI:: for the argument meanings; the output is a self-contained .ly String."
+	[classmethod.scoreAsLilypond.args]
+	voices = "an Array of Panola instances (one per staff, top to bottom)"
+	changes = "an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure; the measure:1 entry sets the initial meter/key (nil defaults to 4/4 / \Cmajor)"
+	clefs = "an Array of clef Symbols (\treble \bass \alto \tenor), one per staff (nil defaults to all \treble)"
+	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
+	pageBreaks = "an Array of 1-based measure numbers where a new PAGE starts (nil for none)"
+	systemBreaks = "an Array of 1-based measure numbers where a new SYSTEM starts (nil for none)"
+	lyrics = "an Array parallel to voices; each entry nil, an Array of verse-line Strings, or a bare String"
+	[classmethod.scoreAsLilypond.returns]
+	what = "a standalone LilyPond document (a String)"
+	*/
+	*scoreAsLilypond {
+		| voices, changes, clefs = nil, braces = nil, pageBreaks = nil, systemBreaks = nil, lyrics = nil |
+		var parseOne = { |s|
+			var pname = s[0].asString, i = 1, mod = "", octstr, accid = nil;
+			while { (i < s.size) and: { "#x-".includes(s[i]) } } { mod = mod ++ s[i].asString; i = i + 1 };
+			octstr = s.copyRange(i, s.size - 1);
+			if (mod == "#") { accid = "s" }; if (mod == "x") { accid = "x" };
+			if (mod == "-") { accid = "f" }; if (mod == "--") { accid = "ff" };
+			[pname, accid, octstr.asInteger];
+		};
+		var parseName = { |s|
+			if (s == "r") { (rest: true) } {
+				if (s[0] == $<) {
+					var ps = s.copyRange(1, s.size - 2).split($ ).collect({ |n| parseOne.(n) });
+					(rest: false, pnames: ps.collect(_[0]), accids: ps.collect(_[1]), octs: ps.collect(_[2]))
+				} {
+					var p = parseOne.(s);
+					(rest: false, pnames: [p[0]], accids: [p[1]], octs: [p[2]])
+				}
+			}
+		};
+		var parseDur = { |s|
+			var afterU = s.copyRange(1, s.size - 1);
+			var starIdx = afterU.indexOf($*);
+			var durPart = if (starIdx.notNil) { afterU.copyRange(0, starIdx - 1) } { afterU };
+			var ratioPart = if (starIdx.notNil) { afterU.copyRange(starIdx + 1, afterU.size - 1) } { "1/1" };
+			var tokens = durPart.split($ );
+			var value = tokens[0].asFloat.asInteger;
+			var dots = tokens.size - 1;
+			var ratio = ratioPart.split($/);
+			[value, dots, ratio[0].asInteger, ratio[1].asInteger];
+		};
+		var eventsOf = { |panola|
+			var names = panola.notationnotePattern.asStream.all;
+			var durs = panola.notationdurationPattern.asStream.all;
+			var beats = panola.durationPattern.asStream.all;
+			var dyns = panola.customPropertyPattern("dyn", "").asStream.all;
+			var arts = panola.customPropertyPattern("art", "").asStream.all;
+			var slurs = panola.customPropertyPattern("slur", "").asStream.all;
+			var hairpinsP = panola.customPropertyPattern("hairpin", "").asStream.all;
+			var clefsP = panola.customPropertyPattern("clef", "").asStream.all;
+			names.collect({ |nm, i|
+				var e = parseName.(nm), d = parseDur.(durs[i]);
+				e[\meidur] = d[0]; e[\dots] = d[1]; e[\mult] = d[2]; e[\div] = d[3]; e[\beats] = beats[i];
+				e[\dyn] = dyns[i].asString; e[\art] = arts[i].asString; e[\slur] = slurs[i].asString;
+				e[\clef] = clefsP[i].asString; e[\hairpin] = hairpinsP[i].asString;
+				e;
+			});
+		};
+		// a single note/chord/rest token at a written value, with an optional trailing tie
+		var noteLy = { |ev, md, dt, tieOut|
+			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" });
+			if (ev[\rest]) { "r" ++ d } {
+				if (ev[\pnames].size == 1) {
+					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie
+				} {
+					"<" ++ ev[\pnames].collect({ |pn, c| PanolaLilypond.pr_pitchLy(pn, ev[\accids][c], ev[\octs][c]) }).join(" ")
+						++ ">" ++ d ++ tie
+				}
+			};
+		};
+		// per voice: events -> a flat list of ly tokens (NO splitting yet; Task 5 replaces this)
+		var voiceTokens = { |events, meterStr|
+			events.collect({ |ev| noteLy.(ev, ev[\meidur], ev[\dots], false) });
+		};
+		var resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
+		var meter0 = (resolved[0][\meter]) ? "4/4", key0 = (resolved[0][\key]) ? \Cmajor;
+		var perVoice, staves, out;
+		clefs = clefs ? voices.collect({ \treble });
+		perVoice = voices.collect({ |p, vi| voiceTokens.(eventsOf.(p), meter0) });
+		staves = perVoice.collect({ |toks, vi|
+			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
+				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ toks.join(" ") ++ " } >>";
+		});
+		out = "\\version \"2.24.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
+			++ "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0)
+			++ " }\n\\score { <<\n" ++ staves.join("\n") ++ "\n>> }\n";
+		^out;
+	}
 }
