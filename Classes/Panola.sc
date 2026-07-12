@@ -1070,6 +1070,42 @@ Panola {
 		| voices, changes, clefs=nil, braces=nil, pageBreaks=nil, systemBreaks=nil, lyrics=nil |
 		^PanolaMEI.scoreAsMEI(voices, changes, clefs, braces, pageBreaks, systemBreaks, lyrics);
 	}
+
+	/*
+	[method.asLilypond]
+	description = "render this Panola voice to a standalone LilyPond (.ly) document (one staff). A meter, key and clef are supplied here; a note crossing a barline is split and tied. Delegates to link::Classes/PanolaLilypond::. The result renders with teletype::lilypond file.ly:: and is also accepted by MusicScene's LilyPond engraver."
+	[method.asLilypond.args]
+	meter = "time signature string, e.g. \"4/4\""
+	key = "key symbol, e.g. \\Cmajor, \\Dminor, \\CsharpMinor"
+	clef = "clef symbol: \\treble, \\bass, \\alto, \\tenor"
+	lyrics = "a list of verse-line Strings for this one voice (or a bare String for a single verse; nil for none). Same syntax as link::Classes/PanolaMEI::."
+	[method.asLilypond.returns]
+	what = "a standalone LilyPond document (a String)"
+	*/
+	asLilypond {
+		| meter="4/4", key=\Cmajor, clef=\treble, lyrics=nil |
+		^PanolaLilypond.scoreAsLilypond([this], [( measure: 1, meter: meter, key: key )], [clef], nil, nil, nil,
+			lyrics.notNil.if({ [lyrics] }, { nil }));
+	}
+
+	/*
+	[classmethod.scoreAsLilypond]
+	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). Delegates to link::Classes/PanolaLilypond#*scoreAsLilypond::."
+	[classmethod.scoreAsLilypond.args]
+	voices = "array of Panola instances"
+	changes = "an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure, each field carried forward; the measure:1 entry sets the initial meter/key (nil defaults to 4/4 / \\Cmajor)"
+	clefs = "array of clef symbols, one per staff giving the initial clef (defaults to all treble)"
+	braces = "array of [firstStaff, lastStaff] 1-based ranges to join with a brace"
+	pageBreaks = "an Array of 1-based measure numbers where a new PAGE starts (nil for none)"
+	systemBreaks = "an Array of 1-based measure numbers where a new SYSTEM starts (nil for none)"
+	lyrics = "an Array parallel to voices; each entry nil, an Array of verse-line Strings, or a bare String"
+	[classmethod.scoreAsLilypond.returns]
+	what = "a standalone LilyPond document (a String)"
+	*/
+	*scoreAsLilypond {
+		| voices, changes, clefs=nil, braces=nil, pageBreaks=nil, systemBreaks=nil, lyrics=nil |
+		^PanolaLilypond.scoreAsLilypond(voices, changes, clefs, braces, pageBreaks, systemBreaks, lyrics);
+	}
 }
 
 /*
