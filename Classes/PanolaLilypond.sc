@@ -112,6 +112,37 @@ PanolaLilypond {
 	}
 
 	/*
+	[classmethod.pr_dynLy]
+	description = "(private) a dynamic mark String as a LilyPond dynamic: predefined marks (teletype::mf::, teletype::sfz::, ...) become teletype::\\mf::; a non-standard mark falls back to a teletype::\\markup \\dynamic:: text."
+	[classmethod.pr_dynLy.args]
+	mark = "a dynamic mark String (e.g. \"mf\", \"sffz\")"
+	[classmethod.pr_dynLy.returns]
+	what = "a LilyPond post-event String"
+	*/
+	*pr_dynLy {
+		| mark |
+		var known = ["ppppp","pppp","ppp","pp","p","mp","mf","f","ff","fff","ffff","fffff",
+			"fp","sf","sff","sp","spp","sfz","rfz"];
+		^known.includesEqual(mark).if({ "\\" ++ mark }, { "-\\markup \\dynamic \"" ++ mark ++ "\"" });
+	}
+
+	/*
+	[classmethod.pr_artLy]
+	description = "(private) a space-separated MEI articulation-code list as concatenated LilyPond scripts (teletype::acc stacc:: -> teletype::->-.::). LilyPond has no spiccato script, so teletype::spicc:: maps to the staccatissimo wedge."
+	[classmethod.pr_artLy.args]
+	articStr = "a space-separated MEI artic-code String (e.g. \"acc stacc\"), or \"\""
+	[classmethod.pr_artLy.returns]
+	what = "a concatenated LilyPond script String, or \"\""
+	*/
+	*pr_artLy {
+		| articStr |
+		var m = IdentityDictionary[\stacc->"-.", \stacciss->"-!", \acc->"->", \ten->"--", \marc->"-^", \spicc->"-!"];
+		^(articStr == "").if({ "" }, {
+			articStr.split($ ).collect({ |c| m[c.asSymbol] ? "" }).join;
+		});
+	}
+
+	/*
 	[classmethod.scoreAsLilypond]
 	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). See link::Classes/PanolaMEI#*scoreAsMEI:: for the argument meanings; the output is a self-contained .ly String. The teletype::global:: spine repeats a bar-length teletype::skip:: (teletype::s::) per measure so LilyPond bar-checks every staff, ends with a final teletype::\\bar \"|.\"::, staff ranges named in teletype::braces:: are grouped under a teletype::\\new GrandStaff::, and any voice shorter than the longest voice is padded with whole-bar rests so every staff fills every measure."
 	[classmethod.scoreAsLilypond.args]
@@ -174,6 +205,42 @@ PanolaLilypond {
 				e;
 			});
 		};
+		var artCode = { |name|
+			IdentityDictionary[
+				\staccato->"stacc", \stacc->"stacc", \staccatissimo->"stacciss", \stacciss->"stacciss",
+				\accent->"acc", \acc->"acc", \tenuto->"ten", \ten->"ten",
+				\marcato->"marc", \marc->"marc", \spiccato->"spicc", \spicc->"spicc"
+			][name.asString.asSymbol];
+		};
+		var annotateExpression = { |events|
+			var artSet = Set[], prevArt = "", prevDyn = "";
+			events.do({ |ev|
+				var art = ev[\art] ? "", dyn = ev[\dyn] ? "", noteSet, parts;
+				parts = (art == "").if({ [] }, { art.split($+) });
+				if (art != prevArt) {
+					parts.do({ |p|
+						if (p.includes($:)) {
+							var seg = p.split($:), code = artCode.(seg[0]);
+							if (code.notNil) {
+								(seg[1] == "on").if({ artSet = artSet.add(code) }, { artSet.remove(code) });
+							} { ("PanolaLilypond: unknown articulation '" ++ seg[0] ++ "'").warn };
+						};
+					});
+				};
+				prevArt = art;
+				noteSet = artSet.copy;
+				parts.do({ |p|
+					if ((p != "") and: { p.includes($:).not }) {
+						var code = artCode.(p);
+						if (code.notNil) { noteSet = noteSet.add(code) } { ("PanolaLilypond: unknown articulation '" ++ p ++ "'").warn };
+					};
+				});
+				ev[\articStr] = noteSet.asArray.sort.join(" ");
+				ev[\dynMark] = ((dyn != prevDyn) and: { dyn != "" }).if({ dyn }, { nil });
+				prevDyn = dyn;
+			});
+			events;
+		};
 		var vals = [[1,0,4.0],[2,1,3.0],[2,0,2.0],[4,1,1.5],[4,0,1.0],[8,1,0.75],[8,0,0.5],[16,0,0.25]];
 		var decompose = { |beats|
 			var out = [], remaining = beats, eps = 1e-6;
@@ -220,14 +287,31 @@ PanolaLilypond {
 			( count: numStr, num: num, den: den, groups: groups, bb: bb, groupStarts: starts,
 				pmeter: PanolaMeter(num, den, groups) );
 		};
-		var noteLy = { |ev, md, dt, tieOut|
-			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" });
-			if (ev[\rest]) { "r" ++ d } {
+		var noteLy = { |ev, md, dt, tieOut, firstFrag = true|
+			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" }), post = "";
+			if (firstFrag) {
+				var slurV = ev[\slur] ? "", hpV = ev[\hairpin] ? "";
+				if (ev[\dynMark].notNil) { post = post ++ PanolaLilypond.pr_dynLy(ev[\dynMark]) };
+				post = post ++ PanolaLilypond.pr_artLy(ev[\articStr] ? "");
+				post = post ++ case
+					{ slurV == "start" } { "(" }
+					{ slurV == "end" } { ")" }
+					{ slurV == "endstart" } { ")(" }
+					{ true } { "" };
+				post = post ++ case
+					{ hpV == "cresc" } { "\\<" }
+					{ hpV == "dim" } { "\\>" }
+					{ hpV == "end" } { "\\!" }
+					{ hpV == "endcresc" } { "\\!\\<" }
+					{ hpV == "enddim" } { "\\!\\>" }
+					{ true } { "" };
+			};
+			if (ev[\rest]) { "r" ++ d ++ tie ++ post } {
 				if (ev[\pnames].size == 1) {
-					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie
+					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie ++ post
 				} {
 					"<" ++ ev[\pnames].collect({ |pn, c| PanolaLilypond.pr_pitchLy(pn, ev[\accids][c], ev[\octs][c]) }).join(" ")
-						++ ">" ++ d ++ tie
+						++ ">" ++ d ++ tie ++ post
 				}
 			};
 		};
@@ -285,7 +369,7 @@ PanolaLilypond {
 						var toks = [], compSp = PanolaDurationSpeller.spell(PanolaRational.fromFloat(remainder)),
 							dev = donor[\ev], compRest = dev[\rest], hasRemainder = (dev[\beats] - remainder) > eps,
 							restEv = ( rest: true );
-						unit[\members].do({ |mev| toks = toks.add(noteLy.(mev, mev[\meidur], mev[\dots], false)); });
+						unit[\members].do({ |mev| toks = toks.add(noteLy.(mev, mev[\meidur], mev[\dots], false, true)); });
 						compSp[\components].do({ |x, ci|
 							var hasPrev = (ci > 0), hasNext = (ci < (compSp[\components].size - 1)) or: { hasRemainder },
 								ctie = compRest.if({ nil }, {
@@ -293,14 +377,14 @@ PanolaLilypond {
 										{ hasPrev.if({ "t" }, { hasNext.if({ "i" }, { nil }) }) }) }),
 								compEv = compRest.if({ restEv }, { dev }),
 								tieOut = (ctie == "i") or: { ctie == "m" };
-							toks = toks.add(noteLy.(compEv, x[\meidur], x[\dots], tieOut));
+							toks = toks.add(noteLy.(compEv, x[\meidur], x[\dots], tieOut, ci == 0));
 						});
 						measures[measures.size-1] = measures[measures.size-1].add(
 							"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { " ++ toks.join(" ") ++ " }");
 						pos = pos + container;
 						if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
 						if (hasRemainder) {
-							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder) );
+							units[ui + 1] = ( kind: \normal, ev: dev.copy.put(\beats, dev[\beats] - remainder).put(\dynMark, nil).put(\articStr, "").put(\slur, "").put(\hairpin, "") );
 						} { consumedDonor = true };
 						completed = true;
 					} {
@@ -334,7 +418,7 @@ PanolaLilypond {
 												dt = firstPiece.if({ mev[\dots] }, { var f = fragAt.(mb); f.isNil.if({ 0 }, { f[\dots] }) });
 											if (ok) {
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: noteLy.(mev, md, dt, false), tup: ratio ));
+													( str: noteLy.(mev, md, dt, false, firstPiece), tup: ratio ));
 											};
 											sub = sub + mb; mb = 0;
 											if ((bb - sub) < eps) { buckets = buckets.add([]); sub = 0.0 };
@@ -342,7 +426,7 @@ PanolaLilypond {
 											var f = fragAt.(room);
 											f.isNil.if({ ok = false }, {
 												buckets[buckets.size - 1] = buckets[buckets.size - 1].add(
-													( str: noteLy.(mev, f[\meidur], f[\dots], true), tup: ratio ));
+													( str: noteLy.(mev, f[\meidur], f[\dots], true, firstPiece), tup: ratio ));
 												buckets = buckets.add([]); mb = mb - room; sub = 0.0; firstPiece = false;
 											});
 										});
@@ -363,21 +447,22 @@ PanolaLilypond {
 							};
 							measures[measures.size-1] = measures[measures.size-1].add(
 								"\\tuplet " ++ unit[\num] ++ "/" ++ unit[\numbase] ++ " { "
-								++ unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false) }).join(" ") ++ " }");
+								++ unit[\members].collect({ |m| noteLy.(m, m[\meidur], m[\dots], false, true) }).join(" ") ++ " }");
 							pos = pos + tbeats;
 							if (pos >= (bb - eps)) { measures = measures.add([]); pos = (pos - bb).max(0.0) };
 						};
 					} {
 						// (C) normal note/rest: meter split + tie, wrapping any tuplet fragments the splitter produced
 						var ev = unit[\ev];
-						var remaining = ev[\beats];
+						var remaining = ev[\beats], firstFrag = true;
 						while { remaining > eps } {
 							var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
 							var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter), frecs = [];
 							pieces.do({ |pc, c|
 								var isLast = lastFrag and: { c == (pieces.size - 1) };
 								var tieOut = ev[\rest].not and: { isLast.not };
-								frecs = frecs.add(( str: noteLy.(ev, pc[0], pc[1], tieOut), tup: pc[3] ));
+								frecs = frecs.add(( str: noteLy.(ev, pc[0], pc[1], tieOut, firstFrag), tup: pc[3] ));
+								firstFrag = false;
 							});
 							wrapTuplets.(frecs).do({ |r| measures[measures.size-1] = measures[measures.size-1].add(r[\str]) });
 							pos = pos + take; remaining = remaining - take;
@@ -408,7 +493,7 @@ PanolaLilypond {
 		key0 = (resolved[0][\key]) ? \Cmajor;
 		clefs = clefs ? voices.collect({ \treble });
 		mdesc0 = parseMeter.(meter0);
-		perVoice = voices.collect({ |p, vi| voiceToMeasures.(eventsOf.(p), meter0) });
+		perVoice = voices.collect({ |p, vi| voiceToMeasures.(annotateExpression.(eventsOf.(p)), meter0) });
 		nm = perVoice.collect({ |m| m.size }).maxItem.max(1);
 		barRest = "r1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den];
 		perVoice = perVoice.collect({ |measures| while { measures.size < nm } { measures = measures.add([barRest]) }; measures });
