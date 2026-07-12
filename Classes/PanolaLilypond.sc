@@ -186,18 +186,82 @@ PanolaLilypond {
 				}
 			};
 		};
-		// per voice: events -> a flat list of ly tokens (NO splitting yet; Task 5 replaces this)
-		var voiceTokens = { |events, meterStr|
-			events.collect({ |ev| noteLy.(ev, ev[\meidur], ev[\dots], false) });
+		// ---- duration/meter helpers (verbatim from PanolaMEI) ----
+		var vals = [[1,0,4.0],[2,1,3.0],[2,0,2.0],[4,1,1.5],[4,0,1.0],[8,1,0.75],[8,0,0.5],[16,0,0.25]];
+		var decompose = { |beats|
+			var out = [], remaining = beats, eps = 1e-6;
+			while { remaining > eps } {
+				var found = false;
+				vals.do({ |v| if (found.not and: { v[2] <= (remaining + eps) }) { out = out.add([v[0],v[1]]); remaining = remaining - v[2]; found = true } });
+				if (found.not) { remaining = 0 };
+			};
+			out;
+		};
+		var durToBeats = { |md, dt| (4 / md) * (2 - (1 / (2 ** dt))) };
+		var meterPieces = { |onsetBeats, durBeats, isRest, pmeter|
+			var comps = PanolaMeterSplitter.split(
+				( onsetQL: PanolaRational.fromFloat(onsetBeats),
+				  durationQL: PanolaRational.fromFloat(durBeats), isRest: isRest ), pmeter);
+			var out = [];
+			comps.do({ |c|
+				var sp = c[\spelling];
+				if (sp[\inexpressible]) {
+					("PanolaLilypond: inexpressible piece " ++ c[\durationQL].asString ++ " — using decompose").warn;
+					decompose.(c[\durationQL].asFloat).do({ |pc| out = out.add([pc[0], pc[1], durToBeats.(pc[0], pc[1]), nil]) });
+				} {
+					sp[\components].do({ |x|
+						var tup = x[\tuplets].isEmpty.if({ nil },
+							{ ( num: x[\tuplets][0][\actual], numbase: x[\tuplets][0][\normal] ) });
+						out = out.add([x[\meidur], x[\dots], x[\ql].asFloat, tup]);
+					});
+				};
+			});
+			out;
+		};
+		var parseMeter = { |m|
+			var parts = m.split($/), numStr = parts[0], den = parts[1].asInteger, unit = 4.0 / parts[1].asInteger;
+			var groups = (numStr.indexOf($+).notNil).if({ numStr.split($+).collect({ |g| g.asInteger }) }, { nil });
+			var num = groups.notNil.if({ groups.sum }, { numStr.asInteger });
+			var bb = num * unit, starts;
+			groups.notNil.if({
+				starts = [0.0];
+				groups.drop(-1).do({ |g| starts = starts.add(starts.last + (g * unit)) });
+			}, {
+				var gb = ((den == 8) and: { (num % 3) == 0 }).if({ 1.5 }, { 1.0 });
+				starts = (0..(((bb / gb).ceil.asInteger) - 1)).collect({ |kk| kk * gb });
+			});
+			( count: numStr, num: num, den: den, groups: groups, bb: bb, groupStarts: starts,
+				pmeter: PanolaMeter(num, den, groups) );
+		};
+		// ---- per voice: events -> a list of measures (each a list of tokens), split meter-aware, tied ----
+		var voiceToMeasures = { |events, meterStr|
+			var mdesc = parseMeter.(meterStr), bb = mdesc[\bb], pmeter = mdesc[\pmeter];
+			var measures = [[]], pos = 0.0, eps = 1e-6;
+			events.do({ |ev|
+				var remaining = ev[\beats];
+				while { remaining > eps } {
+					var take = (bb - pos).min(remaining), crosses = remaining > ((bb - pos) + eps);
+					var lastFrag = crosses.not, pieces = meterPieces.(pos, take, ev[\rest], pmeter);
+					pieces.do({ |pc, c|
+						var isLast = lastFrag and: { c == (pieces.size - 1) };
+						var tieOut = ev[\rest].not and: { isLast.not };
+						measures[measures.size-1] = measures[measures.size-1].add(noteLy.(ev, pc[0], pc[1], tieOut));
+					});
+					pos = pos + take; remaining = remaining - take;
+					if ((bb - pos) < eps) { measures = measures.add([]); pos = 0.0 };
+				};
+			});
+			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
+			measures;
 		};
 		var resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
 		var meter0 = (resolved[0][\meter]) ? "4/4", key0 = (resolved[0][\key]) ? \Cmajor;
 		var perVoice, staves, out;
 		clefs = clefs ? voices.collect({ \treble });
-		perVoice = voices.collect({ |p, vi| voiceTokens.(eventsOf.(p), meter0) });
-		staves = perVoice.collect({ |toks, vi|
+		perVoice = voices.collect({ |p, vi| voiceToMeasures.(eventsOf.(p), meter0) });
+		staves = perVoice.collect({ |measures, vi|
 			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
-				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ toks.join(" ") ++ " } >>";
+				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
 		});
 		out = "\\version \"2.24.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
 			++ "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0)
