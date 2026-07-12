@@ -143,6 +143,24 @@ PanolaLilypond {
 	}
 
 	/*
+	[classmethod.pr_lyricTok]
+	description = "(private) one lyric syllable slot as a LilyPond lyricmode token: the (quoted if it contains a space/hyphen/underscore/quote or leads with a digit) syllable, plus teletype:: --:: when it continues to the next syllable of the same word. A melisma/blank note is emitted as teletype::_:: by the caller, not here."
+	[classmethod.pr_lyricTok.args]
+	slot = "a syllable slot Event (syl:, con:)"
+	[classmethod.pr_lyricTok.returns]
+	what = "a LilyPond lyricmode token String"
+	*/
+	*pr_lyricTok {
+		| slot |
+		var syl = slot[\syl], needsQuote, q, con;
+		needsQuote = syl.isEmpty or: { "0123456789".includes(syl[0]) }
+			or: { syl.any({ |ch| " \t\n\"-_".includes(ch) }) };
+		q = needsQuote.if({ "\"" ++ syl.replace("\\", "\\\\").replace("\"", "\\\"") ++ "\"" }, { syl });
+		con = (slot[\con] == "d").if({ " --" }, { "" });
+		^q ++ con;
+	}
+
+	/*
 	[classmethod.scoreAsLilypond]
 	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). See link::Classes/PanolaMEI#*scoreAsMEI:: for the argument meanings; the output is a self-contained .ly String. The teletype::global:: spine repeats a bar-length teletype::skip:: (teletype::s::) per measure so LilyPond bar-checks every staff, ends with a final teletype::\\bar \"|.\"::, staff ranges named in teletype::braces:: are grouped under a teletype::\\new GrandStaff::, and any voice shorter than the longest voice is padded with whole-bar rests so every staff fills every measure."
 	[classmethod.scoreAsLilypond.args]
@@ -238,6 +256,33 @@ PanolaLilypond {
 				ev[\articStr] = noteSet.asArray.sort.join(" ");
 				ev[\dynMark] = ((dyn != prevDyn) and: { dyn != "" }).if({ dyn }, { nil });
 				prevDyn = dyn;
+			});
+			events;
+		};
+		var lyricSlotsFor = { |vi|
+			var entry = (lyrics.notNil and: { vi < lyrics.size }).if({ lyrics[vi] }, { nil });
+			var verseLines = case
+				{ entry.isNil } { [] }
+				{ entry.isString } { [ entry ] }
+				{ true } { entry };
+			verseLines.collect({ |ln| PanolaMEI.pr_parseLyricLine(ln) });
+		};
+		var attachLyrics = { |events, verseSlotLists, voiceIndex|
+			var ptrs = Array.fill(verseSlotLists.size, 0);
+			events.do({ |ev|
+				if (ev[\rest]) { ev[\lyrics] = nil } {
+					ev[\lyrics] = verseSlotLists.collect({ |slots, vi|
+						var p = ptrs[vi], slot = (p < slots.size).if({ slots[p] }, { nil });
+						ptrs[vi] = p + 1;
+						(slot.notNil and: { slot[\melisma] != true }).if({ slot }, { nil });
+					});
+				};
+			});
+			verseSlotLists.do({ |slots, vi|
+				if (ptrs[vi] < slots.size) {
+					("PanolaLilypond: " ++ (slots.size - ptrs[vi]) ++ " lyric syllables past the end of voice "
+						++ (voiceIndex+1) ++ " verse " ++ (vi+1) ++ " — dropped").warn;
+				};
 			});
 			events;
 		};
@@ -487,13 +532,14 @@ PanolaLilypond {
 			};
 			acc;
 		};
-		var resolved, meter0, key0, mdesc0, barRest, perVoice, nm, staffStrs, spine, out;
+		var resolved, meter0, key0, mdesc0, barRest, perVoice, nm, staffStrs, spine, out, allEvents, lyricsStr;
 		resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
 		meter0 = (resolved[0][\meter]) ? "4/4";
 		key0 = (resolved[0][\key]) ? \Cmajor;
 		clefs = clefs ? voices.collect({ \treble });
 		mdesc0 = parseMeter.(meter0);
-		perVoice = voices.collect({ |p, vi| voiceToMeasures.(annotateExpression.(eventsOf.(p)), meter0) });
+		allEvents = voices.collect({ |p, vi| attachLyrics.(annotateExpression.(eventsOf.(p)), lyricSlotsFor.(vi), vi) });
+		perVoice = allEvents.collect({ |evs| voiceToMeasures.(evs, meter0) });
 		nm = perVoice.collect({ |m| m.size }).maxItem.max(1);
 		barRest = "r1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den];
 		perVoice = perVoice.collect({ |measures| while { measures.size < nm } { measures = measures.add([barRest]) }; measures });
@@ -504,8 +550,18 @@ PanolaLilypond {
 		spine = "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0) ++ " ";
 		nm.do({ |idx| spine = spine ++ "s1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den] ++ ((idx + 1) < nm).if({ " | " }, { " " }); });
 		spine = spine ++ "\\bar \"|.\" }";
+		lyricsStr = "";
+		voices.do({ |p, vi|
+			lyricSlotsFor.(vi).do({ |slots, vv|
+				var toks = allEvents[vi].select({ |ev| ev[\rest].not }).collect({ |ev|
+					var slot = ev[\lyrics][vv];
+					slot.isNil.if({ "_" }, { PanolaLilypond.pr_lyricTok(slot) });
+				});
+				lyricsStr = lyricsStr ++ "  \\new Lyrics \\lyricsto \"v" ++ (vi+1) ++ "\" { " ++ toks.join(" ") ++ " }\n";
+			});
+		});
 		out = "\\version \"2.24.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
-			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ ">> }\n";
+			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ lyricsStr ++ ">> }\n";
 		^out;
 	}
 }
