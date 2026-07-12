@@ -1,0 +1,90 @@
+TITLE:: PanolaLilypond
+summary:: render Panola voice(s) to a standalone LilyPond (.ly) document
+categories:: Notation, Utils
+related:: Classes/Panola, Classes/PanolaMEI, Classes/MSScore, Classes/PanolaMeterSplitter
+
+DESCRIPTION::
+Pure transform from Panola voice(s) + score preferences to a self-contained LilyPond source (a String)
+that renders standalone (teletype::lilypond score.ly::) and is also accepted by MusicScene's LilyPond
+engraver. It is the LilyPond sibling of link::Classes/PanolaMEI:: and covers the same features: meter-aware
+splitting-and-tying, tuplets (incl. music21-style completion and cross-barline splitting), dynamics,
+articulations, slurs, hairpins, lyrics, inline teletype::@clef::, mid-piece meter/key changes, additive
+meters, page/system breaks, braces and multi-staff. Pitches are absolute with teletype::\\language "english"::;
+LilyPond auto-beams and auto-respells accidentals. See link::Classes/PanolaMEI:: for the Panola property syntax.
+
+
+
+CLASSMETHODS::
+
+METHOD:: pr_pitchLy
+(private) a Panola pitch (pname, accid code s/x/f/ff or nil, octave Integer) as an absolute english-language LilyPond pitch, e.g. teletype::fs''::. Octave marks: apostrophes = octave-3 (comma below).
+
+ARGUMENT:: pname
+the diatonic pitch letter String (a..g)
+
+ARGUMENT:: accid
+the accidental code String "s"/"x"/"f"/"ff", or nil
+
+ARGUMENT:: oct
+the octave Integer (scientific: 4 = the octave of middle C)
+
+returns:: a LilyPond pitch String
+METHOD:: pr_durLy
+(private) a MEI/Panola duration value token ("1","2","4","8",... or "breve"/"long"/"maxima") plus a dot count as a LilyPond duration, e.g. teletype::4.::
+
+ARGUMENT:: md
+the note-value token (a String or Integer)
+
+ARGUMENT:: dots
+the number of augmentation dots
+
+returns:: a LilyPond duration String
+METHOD:: pr_clefLy
+(private) a clef Symbol (\treble \bass \alto \tenor) as a LilyPond clef name; an unknown clef warns and yields "treble".
+
+ARGUMENT:: clefSym
+a clef Symbol
+
+returns:: a LilyPond clef-name String
+METHOD:: pr_keyLy
+(private) a key Symbol (e.g. \Gmajor, \FsharpMinor) as a LilyPond teletype::\key:: argument, e.g. teletype::g \major::; an unknown key warns and yields teletype::c \major::. LilyPond auto-respells accidentals, so no per-note key logic is needed.
+
+ARGUMENT:: keySym
+a key Symbol
+
+returns:: a LilyPond key String, e.g. "g \\major"
+METHOD:: pr_meterLy
+(private) a meter String as a LilyPond time-signature command. A plain numerator (teletype::"7/8"::) yields teletype::\time 7/8::; an additive numerator (teletype::"2+2+3/8"::) yields a teletype::\compoundMeter:: that both displays the additive signature and groups the auto-beaming.
+
+ARGUMENT:: meterStr
+a meter String, e.g. "4/4" or "2+2+3/8"
+
+returns:: a LilyPond time-signature command String
+METHOD:: pr_dynLy
+(private) a dynamic mark String as a LilyPond dynamic: predefined marks (teletype::mf::, teletype::sfz::, ...) become teletype::\mf::; a non-standard mark falls back to a teletype::\markup \dynamic:: text.
+
+ARGUMENT:: mark
+a dynamic mark String (e.g. "mf", "sffz")
+
+returns:: a LilyPond post-event String
+METHOD:: pr_artLy
+(private) a space-separated MEI articulation-code list as concatenated LilyPond scripts (teletype::acc stacc:: -> teletype::->-.::). LilyPond has no spiccato script, so teletype::spicc:: maps to the staccatissimo wedge.
+
+ARGUMENT:: articStr
+a space-separated MEI artic-code String (e.g. "acc stacc"), or ""
+
+returns:: a concatenated LilyPond script String, or ""
+METHOD:: pr_lyricTok
+(private) one lyric syllable slot as a LilyPond lyricmode token: the (quoted if it contains a space/hyphen/underscore/quote or leads with a digit) syllable, plus teletype:: --:: when it continues to the next syllable of the same word. A melisma/blank note is emitted as teletype::_:: by the caller, not here.
+
+ARGUMENT:: slot
+a syllable slot Event (syl:, con:)
+
+returns:: a LilyPond lyricmode token String
+
+
+EXAMPLES::
+
+code::
+(FIXME add some example code)
+::
