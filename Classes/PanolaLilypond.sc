@@ -113,12 +113,12 @@ PanolaLilypond {
 
 	/*
 	[classmethod.scoreAsLilypond]
-	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). See link::Classes/PanolaMEI#*scoreAsMEI:: for the argument meanings; the output is a self-contained .ly String."
+	description = "render several Panola voices as one standalone LilyPond score (one voice per staff, top first). See link::Classes/PanolaMEI#*scoreAsMEI:: for the argument meanings; the output is a self-contained .ly String. The teletype::global:: spine repeats a bar-length teletype::skip:: (teletype::s::) per measure so LilyPond bar-checks every staff, ends with a final teletype::\\bar \"|.\"::, staff ranges named in teletype::braces:: are grouped under a teletype::\\new GrandStaff::, and any voice shorter than the longest voice is padded with whole-bar rests so every staff fills every measure."
 	[classmethod.scoreAsLilypond.args]
 	voices = "an Array of Panola instances (one per staff, top to bottom)"
 	changes = "an Array of Events ( measure:, meter:, key: ) applied at the start of their 1-based measure; the measure:1 entry sets the initial meter/key (nil defaults to 4/4 / \Cmajor)"
 	clefs = "an Array of clef Symbols (\treble \bass \alto \tenor), one per staff (nil defaults to all \treble)"
-	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together (nil for none)"
+	braces = "an Array of [firstStaff, lastStaff] 1-based ranges to brace together into a GrandStaff (nil for none)"
 	pageBreaks = "an Array of 1-based measure numbers where a new PAGE starts (nil for none)"
 	systemBreaks = "an Array of 1-based measure numbers where a new SYSTEM starts (nil for none)"
 	lyrics = "an Array parallel to voices; each entry nil, an Array of verse-line Strings, or a bare String"
@@ -174,19 +174,6 @@ PanolaLilypond {
 				e;
 			});
 		};
-		// a single note/chord/rest token at a written value, with an optional trailing tie
-		var noteLy = { |ev, md, dt, tieOut|
-			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" });
-			if (ev[\rest]) { "r" ++ d } {
-				if (ev[\pnames].size == 1) {
-					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie
-				} {
-					"<" ++ ev[\pnames].collect({ |pn, c| PanolaLilypond.pr_pitchLy(pn, ev[\accids][c], ev[\octs][c]) }).join(" ")
-						++ ">" ++ d ++ tie
-				}
-			};
-		};
-		// ---- duration/meter helpers (verbatim from PanolaMEI) ----
 		var vals = [[1,0,4.0],[2,1,3.0],[2,0,2.0],[4,1,1.5],[4,0,1.0],[8,1,0.75],[8,0,0.5],[16,0,0.25]];
 		var decompose = { |beats|
 			var out = [], remaining = beats, eps = 1e-6;
@@ -233,7 +220,17 @@ PanolaLilypond {
 			( count: numStr, num: num, den: den, groups: groups, bb: bb, groupStarts: starts,
 				pmeter: PanolaMeter(num, den, groups) );
 		};
-		// ---- per voice: events -> a list of measures (each a list of tokens), split meter-aware, tied ----
+		var noteLy = { |ev, md, dt, tieOut|
+			var d = PanolaLilypond.pr_durLy(md, dt), tie = tieOut.if({ "~" }, { "" });
+			if (ev[\rest]) { "r" ++ d } {
+				if (ev[\pnames].size == 1) {
+					PanolaLilypond.pr_pitchLy(ev[\pnames][0], ev[\accids][0], ev[\octs][0]) ++ d ++ tie
+				} {
+					"<" ++ ev[\pnames].collect({ |pn, c| PanolaLilypond.pr_pitchLy(pn, ev[\accids][c], ev[\octs][c]) }).join(" ")
+						++ ">" ++ d ++ tie
+				}
+			};
+		};
 		var voiceToMeasures = { |events, meterStr|
 			var mdesc = parseMeter.(meterStr), bb = mdesc[\bb], pmeter = mdesc[\pmeter];
 			var measures = [[]], pos = 0.0, eps = 1e-6;
@@ -254,18 +251,37 @@ PanolaLilypond {
 			if (measures[measures.size-1].size == 0) { measures = measures.copyRange(0, measures.size - 2) };
 			measures;
 		};
-		var resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
-		var meter0 = (resolved[0][\meter]) ? "4/4", key0 = (resolved[0][\key]) ? \Cmajor;
-		var perVoice, staves, out;
+		// group braced staff ranges into a GrandStaff (a brace); ungrouped staves stay siblings
+		var groupStaves = { |strs, br|
+			var acc = "", n = 1, nst = strs.size, bb2 = br ? [];
+			while { n <= nst } {
+				var grp = bb2.detect({ |b| b[0] == n });
+				if (grp.notNil) {
+					acc = acc ++ "  \\new GrandStaff <<\n" ++ (grp[0]..grp[1]).collect({ |c| strs[c-1] }).join("\n") ++ "\n  >>\n";
+					n = grp[1] + 1;
+				} { acc = acc ++ strs[n-1] ++ "\n"; n = n + 1 };
+			};
+			acc;
+		};
+		var resolved, meter0, key0, mdesc0, barRest, perVoice, nm, staffStrs, spine, out;
+		resolved = changes ? [( measure: 1, meter: "4/4", key: \Cmajor )];
+		meter0 = (resolved[0][\meter]) ? "4/4";
+		key0 = (resolved[0][\key]) ? \Cmajor;
 		clefs = clefs ? voices.collect({ \treble });
+		mdesc0 = parseMeter.(meter0);
 		perVoice = voices.collect({ |p, vi| voiceToMeasures.(eventsOf.(p), meter0) });
-		staves = perVoice.collect({ |measures, vi|
+		nm = perVoice.collect({ |m| m.size }).maxItem.max(1);
+		barRest = "r1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den];
+		perVoice = perVoice.collect({ |measures| while { measures.size < nm } { measures = measures.add([barRest]) }; measures });
+		staffStrs = perVoice.collect({ |measures, vi|
 			"    \\new Staff << \\global \\new Voice = \"v" ++ (vi+1) ++ "\" { \\clef "
 				++ PanolaLilypond.pr_clefLy(clefs[vi]) ++ " " ++ measures.collect({ |m| m.join(" ") }).join(" | ") ++ " } >>";
 		});
+		spine = "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0) ++ " ";
+		nm.do({ |idx| spine = spine ++ "s1*" ++ mdesc0[\num] ++ "/" ++ mdesc0[\den] ++ ((idx + 1) < nm).if({ " | " }, { " " }); });
+		spine = spine ++ "\\bar \"|.\" }";
 		out = "\\version \"2.24.0\"\n\\language \"english\"\n\\header { tagline = ##f }\n\\paper { indent = 0\\mm }\n"
-			++ "global = { " ++ PanolaLilypond.pr_meterLy(meter0) ++ " \\key " ++ PanolaLilypond.pr_keyLy(key0)
-			++ " }\n\\score { <<\n" ++ staves.join("\n") ++ "\n>> }\n";
+			++ spine ++ "\n\\score { <<\n" ++ groupStaves.(staffStrs, braces) ++ ">> }\n";
 		^out;
 	}
 }
